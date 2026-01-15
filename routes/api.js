@@ -2314,7 +2314,8 @@ router.post('/attendance/checkin', (req, res, next) => {
         });
       }
       
-      if (currentTime > schedule.clock_in_end) {
+      // Tentukan status terlambat berdasarkan jam masuk kerja (start_time), bukan clock_in_end
+      if (currentTime > schedule.start_time) {
         clockInStatus = 'late';
         isLate = true;
       }
@@ -2661,7 +2662,8 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
         });
       }
       
-      if (currentTime < schedule.clock_out_start) {
+      // Tentukan status checkout berdasarkan jam pulang kerja (end_time)
+      if (currentTime < schedule.end_time) {
         clockOutStatus = 'early';
         isEarly = true;
       } else if (currentTime > schedule.end_time) {
