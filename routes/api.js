@@ -103,6 +103,21 @@ async function getConnection() {
 function parseWorkDays(workDaysString) {
   if (!workDaysString) return [];
   
+  // If already an array, return it
+  if (Array.isArray(workDaysString)) {
+    return workDaysString;
+  }
+  
+  // If it's an object (Buffer), convert to string first
+  if (typeof workDaysString === 'object') {
+    workDaysString = workDaysString.toString();
+  }
+  
+  // If not a string at this point, return empty array
+  if (typeof workDaysString !== 'string') {
+    return [];
+  }
+  
   try {
     // Try parse as JSON first
     return JSON.parse(workDaysString);
