@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    
+    <!-- Stylized "F" for Fleur -->
+    <path
+        android:fillColor="@color/text_primary"
+        android:pathData="M30,20 L30,100 L35,100 L35,65 L70,65 L70,60 L35,60 L35,25 L75,25 L75,20 Z" />
+    
+    <!-- Decorative flower element -->
+    <path
+        android:fillColor="@color/primary_brown_light"
+        android:pathData="M85,35 C90,30 95,35 90,40 C95,45 90,50 85,45 C80,50 75,45 80,40 C75,35 80,30 85,35 Z" />
+    
+    <!-- Small dots for artistic touch -->
+    <path
+        android:fillColor="@color/primary_brown_light"
+        android:pathData="M45,78 A2,2 0 1,1 45,82 A2,2 0 1,1 45,78 Z" />
+    <path
+        android:fillColor="@color/primary_brown_light"
+        android:pathData="M55,83.5 A1.5,1.5 0 1,1 55,86.5 A1.5,1.5 0 1,1 55,83.5 Z" />
+    <path
+        android:fillColor="@color/primary_brown_light"
+        android:pathData="M65,81 A1,1 0 1,1 65,83 A1,1 0 1,1 65,81 Z" />
+</vector>

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Network Permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- Location Permissions -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
+    <!-- Camera Permissions -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- Storage Permissions -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- Hardware Features -->
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+    <uses-feature android:name="android.hardware.camera.autofocus" />
+    <uses-feature android:name="android.hardware.location" android:required="true" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="true" />
+
+    <application
+        android:name=".AttendanceApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@drawable/app_logo"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/app_logo"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="true">
+        
+        <!-- Splash Activity (Launcher) -->
+        <activity
+            android:name=".ui.splash.SplashActivity"
+            android:exported="true"
+            android:theme="@style/SplashTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        
+        <!-- Login Activity -->
+        <activity
+            android:name=".ui.auth.LoginActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+            
+        <!-- Activation Activity -->
+        <activity
+            android:name=".ui.auth.ActivationActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+            
+        <!-- Face Enrollment Activity -->
+        <activity
+            android:name=".ui.auth.FaceEnrollmentActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+        
+        <!-- Main Activity -->
+        <activity
+            android:name=".ui.main.MainActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+            
+        <!-- Clock In Activity -->
+        <activity
+            android:name=".ui.attendance.ClockInActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+            
+        <!-- Clock Out Activity -->
+        <activity
+            android:name=".ui.attendance.ClockOutActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+            
+        <!-- Attendance History Activity -->
+        <activity
+            android:name=".ui.attendance.AttendanceHistoryActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+            
+        <!-- Profile Activity -->
+        <activity
+            android:name=".ui.profile.ProfileActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+            
+        <!-- Profile Edit Activity -->
+        <activity
+            android:name=".ui.profile.ProfileEditActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+            
+        <!-- Settings Activity -->
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+            
+        <!-- Change PIN Activity -->
+        <activity
+            android:name=".ui.settings.ChangePinActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+            
+        <!-- UCrop Activity -->
+        <activity
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/AppTheme" />
+
+    </application>
+
+</manifest>

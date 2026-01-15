@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors -->
+    <color name="primary_brown">#A67C52</color>
+    <color name="primary_brown_dark">#8B6914</color>
+    <color name="primary_brown_light">#B8956B</color>
+    
+    <!-- Dark Theme -->
+    <color name="dark_background">#1A1D20</color>
+    <color name="dark_surface">#212529</color>
+    <color name="dark_surface_variant">#343A40</color>
+    
+    <!-- Brown Variants -->
+    <color name="brown_50">#FAF8F5</color>
+    <color name="brown_100">#F0EBE4</color>
+    <color name="brown_200">#E4D5C7</color>
+    <color name="brown_300">#D4BFA6</color>
+    <color name="brown_400">#C4A882</color>
+    <color name="brown_500">#B8956B</color>
+    <color name="brown_600">#A67C52</color>
+    <color name="brown_700">#8B6914</color>
+    <color name="brown_800">#6D4C0F</color>
+    <color name="brown_900">#4A320A</color>
+    
+    <!-- Status Colors -->
+    <color name="success_green">#10B981</color>
+    <color name="error_red">#EF4444</color>
+    <color name="warning_yellow">#F59E0B</color>
+    <color name="info_blue">#3B82F6</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#D4BFA6</color>
+    <color name="text_tertiary">#A67C52</color>
+    
+    <!-- Legacy Colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

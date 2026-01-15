@@ -679,6 +679,7 @@ router.post('/auth/activate', upload.single('face_photo'), async (req, res) => {
 
     // Detect faces in uploaded photo
     const faces = await detectFaces(req.file.path);
+    console.log('Detected', faces.length, 'faces');
     
     if (faces.length === 0) {
       // Delete uploaded file
@@ -700,18 +701,21 @@ router.post('/auth/activate', upload.single('face_photo'), async (req, res) => {
 
     try {
       // 1. Update karyawan with PIN, foto_referensi, and activate
+      console.log('Updating karyawan:', karyawan.id);
       await connection.execute(
         'UPDATE karyawan SET pin = ?, foto_referensi = ?, is_activated = TRUE, pin_attempts = 0 WHERE id = ?',
         [hashedPin, req.file.filename, karyawan.id]
       );
 
       // 2. Deactivate existing face references
+      console.log('Deactivating old face references');
       await connection.execute(
         'UPDATE karyawan_face_reference SET is_active = FALSE WHERE karyawan_id = ?',
         [karyawan.id]
       );
 
       // 3. Save new face reference
+      console.log('Saving new face reference');
       await connection.execute(`
         INSERT INTO karyawan_face_reference 
         (karyawan_id, filename, original_name, file_path, faces_data, faces_count, is_active) 
@@ -724,8 +728,10 @@ router.post('/auth/activate', upload.single('face_photo'), async (req, res) => {
         JSON.stringify(faces),
         faces.length
       ]);
+      console.log('Face reference saved successfully');
 
       await connection.commit();
+      console.log('Transaction committed');
 
       // Generate tokens
       const accessToken = generateAccessToken({ 
