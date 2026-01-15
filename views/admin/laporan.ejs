@@ -205,9 +205,10 @@
                             <% presensi.forEach(function(p) { %>
                                 <div class="border-b border-brown-600/30 p-4">
                                     <div class="flex items-start space-x-4">
-                                        <img src="/uploads/presensi/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
+                                        <img src="/uploads/karyawan/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
+                                             onerror="this.src='/LogoApp.jpeg'; this.onerror=null;"
                                              class="w-16 h-16 rounded-lg object-cover cursor-pointer flex-shrink-0 border-2 border-brown-600/50"
-                                             onclick="showImage('/uploads/presensi/<%= p.foto_checkin %>')">
+                                             onclick="showImage('/uploads/karyawan/<%= p.foto_checkin %>')">
                                         <div class="flex-1 min-w-0">
                                             <div class="flex items-center justify-between mb-2">
                                                 <h3 class="font-semibold text-white truncate"><%= p.nama %></h3>
@@ -276,9 +277,10 @@
                                                 <%= new Date(p.waktu).toLocaleString('id-ID') %>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
-                                                <img src="/uploads/presensi/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
+                                                <img src="/uploads/karyawan/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
+                                                     onerror="this.src='/LogoApp.jpeg'; this.onerror=null;"
                                                      class="w-12 h-12 rounded-lg object-cover cursor-pointer border-2 border-brown-600/50 hover:border-brown-400 transition duration-200"
-                                                     onclick="showImage('/uploads/presensi/<%= p.foto_checkin %>')">
+                                                     onclick="showImage('/uploads/karyawan/<%= p.foto_checkin %>')">
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <% if (p.status_lokasi === 'Dalam Area') { %>
