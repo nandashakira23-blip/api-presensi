@@ -15,35 +15,58 @@ async function up(connection) {
   console.log('Running migration: Enhance Face Recognition Accuracy');
   
   try {
-    // Kolom tambahan di tabel absensi_face_log
-    await connection.execute(`
-      ALTER TABLE absensi_face_log 
-      ADD COLUMN overall_confidence DECIMAL(5,4) DEFAULT NULL COMMENT 'Skor confidence keseluruhan',
-      ADD COLUMN recommendation TEXT DEFAULT NULL COMMENT 'Rekomendasi AI berdasarkan analisis',
-      ADD COLUMN image_quality_score DECIMAL(5,4) DEFAULT NULL COMMENT 'Skor kualitas gambar',
-      ADD COLUMN processing_time_ms INT DEFAULT NULL COMMENT 'Waktu proses dalam milidetik'
+    // Cek apakah kolom sudah ada sebelum menambahkan
+    const [columns] = await connection.execute(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_SCHEMA = DATABASE() 
+      AND TABLE_NAME = 'absensi_face_log' 
+      AND COLUMN_NAME = 'overall_confidence'
     `);
-    
-    // Index untuk performa query
-    await connection.execute(`
-      CREATE INDEX idx_overall_confidence ON absensi_face_log(overall_confidence)
+
+    if (columns.length === 0) {
+      // Kolom tambahan di tabel absensi_face_log
+      await connection.execute(`
+        ALTER TABLE absensi_face_log 
+        ADD COLUMN overall_confidence DECIMAL(5,4) DEFAULT NULL COMMENT 'Skor confidence keseluruhan',
+        ADD COLUMN recommendation TEXT DEFAULT NULL COMMENT 'Rekomendasi AI berdasarkan analisis',
+        ADD COLUMN image_quality_score DECIMAL(5,4) DEFAULT NULL COMMENT 'Skor kualitas gambar',
+        ADD COLUMN processing_time_ms INT DEFAULT NULL COMMENT 'Waktu proses dalam milidetik'
+      `);
+      
+      // Index untuk performa query
+      await connection.execute(`
+        CREATE INDEX idx_overall_confidence ON absensi_face_log(overall_confidence)
+      `);
+      
+      await connection.execute(`
+        CREATE INDEX idx_absen_time_confidence ON absensi_face_log(absen_time, overall_confidence)
+      `);
+    } else {
+      console.log('Columns already exist in absensi_face_log, skipping...');
+    }
+
+    // Cek kolom di face_recognition_stats
+    const [statsColumns] = await connection.execute(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_SCHEMA = DATABASE() 
+      AND TABLE_NAME = 'face_recognition_stats' 
+      AND COLUMN_NAME = 'high_confidence_matches'
     `);
-    
-    await connection.execute(`
-      CREATE INDEX idx_absen_time_confidence ON absensi_face_log(absen_time, overall_confidence)
-    `);
-    
-    // Kolom statistik detail di face_recognition_stats
-    await connection.execute(`
-      ALTER TABLE face_recognition_stats 
-      ADD COLUMN high_confidence_matches INT DEFAULT 0 COMMENT 'Match dengan confidence > 0.8',
-      ADD COLUMN medium_confidence_matches INT DEFAULT 0 COMMENT 'Match dengan confidence 0.6-0.8',
-      ADD COLUMN low_confidence_matches INT DEFAULT 0 COMMENT 'Match dengan confidence < 0.6',
-      ADD COLUMN average_processing_time DECIMAL(8,2) DEFAULT 0 COMMENT 'Rata-rata waktu proses (ms)',
-      ADD COLUMN best_similarity_score DECIMAL(5,4) DEFAULT 0 COMMENT 'Skor similarity terbaik',
-      ADD COLUMN algorithm_version VARCHAR(20) DEFAULT 'enhanced_v1' COMMENT 'Versi algoritma'
-    `);
-    
+
+    if (statsColumns.length === 0) {
+      // Kolom statistik detail di face_recognition_stats
+      await connection.execute(`
+        ALTER TABLE face_recognition_stats 
+        ADD COLUMN high_confidence_matches INT DEFAULT 0 COMMENT 'Match dengan confidence > 0.8',
+        ADD COLUMN medium_confidence_matches INT DEFAULT 0 COMMENT 'Match dengan confidence 0.6-0.8',
+        ADD COLUMN low_confidence_matches INT DEFAULT 0 COMMENT 'Match dengan confidence < 0.6',
+        ADD COLUMN average_processing_time DECIMAL(8,2) DEFAULT 0 COMMENT 'Rata-rata waktu proses (ms)',
+        ADD COLUMN best_similarity_score DECIMAL(5,4) DEFAULT 0 COMMENT 'Skor similarity terbaik',
+        ADD COLUMN algorithm_version VARCHAR(20) DEFAULT 'enhanced_v1' COMMENT 'Versi algoritma'
+      `);
+    } else {
+      console.log('Columns already exist in face_recognition_stats, skipping...');
+    }
     // Tabel pengaturan algoritma face recognition
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS face_recognition_settings (
