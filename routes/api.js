@@ -2120,48 +2120,31 @@ router.post('/attendance/checkin', (req, res, next) => {
     }
 
     console.log('Step 1: Getting office location settings...');
-    // Get office location settings
+    // Get office location settings (untuk perhitungan jarak saja, tidak memblokir)
     const [settingsRows] = await connection.execute(
       'SELECT lat_kantor, long_kantor, radius_meter FROM pengaturan LIMIT 1'
     );
 
-    if (settingsRows.length === 0) {
-      return res.status(500).json({
-        success: false,
-        message: 'Office location not configured',
-        code: 'NO_OFFICE_LOCATION'
-      });
-    }
+    let locationValidation = {
+      isValid: true,
+      distance: 0,
+      allowedRadius: 0
+    };
 
-    const settings = settingsRows[0];
-    console.log('Office settings:', settings);
+    if (settingsRows.length > 0) {
+      const settings = settingsRows[0];
+      console.log('Office settings:', settings);
 
-    console.log('Step 2: Validating location...');
-    // Validate location
-    const locationValidation = isLocationValid(
-      parseFloat(latitude),
-      parseFloat(longitude),
-      parseFloat(settings.lat_kantor),
-      parseFloat(settings.long_kantor),
-      settings.radius_meter
-    );
-    console.log('Location validation:', locationValidation);
-
-    if (!locationValidation.isValid) {
-      // Delete uploaded file
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      
-      return res.status(400).json({
-        success: false,
-        message: 'Location is outside allowed area',
-        code: 'LOCATION_INVALID',
-        data: {
-          distance: locationValidation.distance,
-          allowedRadius: locationValidation.allowedRadius
-        }
-      });
+      console.log('Step 2: Calculating location distance (tidak memblokir)...');
+      // Calculate location distance (tidak memblokir absensi, hanya untuk informasi)
+      locationValidation = isLocationValid(
+        parseFloat(latitude),
+        parseFloat(longitude),
+        parseFloat(settings.lat_kantor),
+        parseFloat(settings.long_kantor),
+        settings.radius_meter
+      );
+      console.log('Location validation:', locationValidation);
     }
 
     console.log('Step 3: Getting employee face reference...');
@@ -2482,34 +2465,27 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
       });
     }
 
-    // Validate location (same as check in)
+    // Calculate location distance (untuk informasi saja, tidak memblokir)
     const [settingsRows] = await connection.execute(
       'SELECT lat_kantor, long_kantor, radius_meter FROM pengaturan LIMIT 1'
     );
 
-    const settings = settingsRows[0];
-    const locationValidation = isLocationValid(
-      parseFloat(latitude),
-      parseFloat(longitude),
-      parseFloat(settings.lat_kantor),
-      parseFloat(settings.long_kantor),
-      settings.radius_meter
-    );
+    let locationValidation = {
+      isValid: true,
+      distance: 0,
+      allowedRadius: 0
+    };
 
-    if (!locationValidation.isValid) {
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      
-      return res.status(400).json({
-        success: false,
-        message: 'Location is outside allowed area',
-        code: 'LOCATION_INVALID',
-        data: {
-          distance: locationValidation.distance,
-          allowedRadius: locationValidation.allowedRadius
-        }
-      });
+    if (settingsRows.length > 0) {
+      const settings = settingsRows[0];
+      // Calculate location distance (tidak memblokir absensi, hanya untuk informasi)
+      locationValidation = isLocationValid(
+        parseFloat(latitude),
+        parseFloat(longitude),
+        parseFloat(settings.lat_kantor),
+        parseFloat(settings.long_kantor),
+        settings.radius_meter
+      );
     }
 
     // Face recognition validation (same as check in)
