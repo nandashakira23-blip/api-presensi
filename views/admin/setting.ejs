@@ -257,8 +257,38 @@
     </div>
 
     <!-- Google Maps JavaScript API -->
+    <script>
+        // Handle Google Maps authentication failure BEFORE loading the API
+        function gm_authFailure() {
+            console.error('Google Maps authentication failed - Invalid API key or restrictions');
+            const mapElement = document.getElementById('map');
+            if (mapElement) {
+                mapElement.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-red-400 p-6 text-center">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <div class="text-lg font-semibold mb-2">Google Maps Authentication Failed</div>
+                        <div class="text-sm text-brown-300 mb-4">
+                            API key tidak valid atau ada pembatasan akses.<br>
+                            Silakan periksa konfigurasi Google Maps API key.
+                        </div>
+                        <div class="text-xs text-brown-400 bg-dark-700 p-3 rounded border border-brown-600/50 max-w-md">
+                            <div class="font-semibold mb-2">Solusi:</div>
+                            <ol class="text-left list-decimal list-inside space-y-1">
+                                <li>Periksa API key di file .env</li>
+                                <li>Pastikan Maps JavaScript API enabled</li>
+                                <li>Cek API restrictions di Google Cloud Console</li>
+                                <li>Pastikan billing account aktif</li>
+                            </ol>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    </script>
+    
     <script async defer 
-        src="https://maps.googleapis.com/maps/api/js?key=<%= GOOGLE_MAPS_API_KEY %>&callback=initMap">
+        src="https://maps.googleapis.com/maps/api/js?key=<%= GOOGLE_MAPS_API_KEY %>&callback=initMap"
+        onerror="handleMapLoadError()">
     </script>
 
     <script>
@@ -275,11 +305,12 @@
         function initMap() {
             try {
                 console.log('Initializing Google Maps with coordinates:', currentLat, currentLng);
+                console.log('API Key present:', '<%= GOOGLE_MAPS_API_KEY %>'.substring(0, 10) + '...');
                 
                 // Check if Google Maps is loaded
                 if (typeof google === 'undefined' || !google.maps) {
                     console.error('Google Maps library not loaded');
-                    document.getElementById('map').innerHTML = '<div class="flex items-center justify-center h-full text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>Google Maps failed to load</div>';
+                    showMapError('Google Maps library gagal dimuat. Periksa koneksi internet atau API key.');
                     return;
                 }
 
@@ -289,7 +320,34 @@
                 map = new google.maps.Map(document.getElementById("map"), {
                     zoom: 16,
                     center: center,
-                    mapTypeId: 'roadmap'
+                    mapTypeId: 'roadmap',
+                    styles: [
+                        {
+                            "featureType": "all",
+                            "elementType": "geometry",
+                            "stylers": [{"color": "#242f3e"}]
+                        },
+                        {
+                            "featureType": "all",
+                            "elementType": "labels.text.stroke",
+                            "stylers": [{"lightness": -80}]
+                        },
+                        {
+                            "featureType": "administrative",
+                            "elementType": "labels.text.fill",
+                            "stylers": [{"color": "#746855"}]
+                        },
+                        {
+                            "featureType": "poi",
+                            "elementType": "labels.text.fill",
+                            "stylers": [{"color": "#d59563"}]
+                        },
+                        {
+                            "featureType": "water",
+                            "elementType": "geometry",
+                            "stylers": [{"color": "#17263c"}]
+                        }
+                    ]
                 });
 
                 // Add marker for office location
@@ -297,7 +355,8 @@
                     position: center,
                     map: map,
                     title: 'Lokasi Kantor Fleur Atelier',
-                    draggable: true
+                    draggable: true,
+                    animation: google.maps.Animation.DROP
                 });
 
                 // Create radius circle
@@ -315,11 +374,12 @@
                     document.getElementById('lat_kantor').value = newLat;
                     document.getElementById('long_kantor').value = newLng;
                     
+                    // Update display
+                    document.getElementById('current-lat').textContent = newLat.toFixed(8);
+                    document.getElementById('current-lng').textContent = newLng.toFixed(8);
+                    
                     // Update circle position
                     updateCirclePosition();
-                    
-                    // Show coordinates
-                    showCoordinates(newLat, newLng);
                 });
 
                 // Event listener for map click
@@ -332,12 +392,28 @@
                 });
 
                 console.log('Google Maps initialized successfully');
-                showCoordinates(currentLat, currentLng);
 
             } catch (error) {
                 console.error('Error initializing Google Maps:', error);
-                document.getElementById('map').innerHTML = '<div class="flex items-center justify-center h-full text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>Error: ' + error.message + '</div>';
+                showMapError('Error: ' + error.message);
             }
+        }
+        
+        function showMapError(message) {
+            const mapElement = document.getElementById('map');
+            if (mapElement) {
+                mapElement.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-red-400 p-6 text-center">
+                        <i class="fas fa-exclamation-triangle text-3xl mb-3"></i>
+                        <div class="text-sm">${message}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        function handleMapLoadError() {
+            console.error('Failed to load Google Maps script');
+            showMapError('Gagal memuat Google Maps. Periksa koneksi internet.');
         }
 
         function createCircle(center, radius) {
@@ -367,18 +443,27 @@
             document.getElementById('lat_kantor').value = location.lat;
             document.getElementById('long_kantor').value = location.lng;
             
+            // Update display
+            document.getElementById('current-lat').textContent = location.lat.toFixed(8);
+            document.getElementById('current-lng').textContent = location.lng.toFixed(8);
+            
             updateCirclePosition();
-            showCoordinates(location.lat, location.lng);
         }
 
         function updateCirclePosition() {
             const radius = parseInt(document.getElementById('radius_meter').value) || currentRadius;
             const center = marker.getPosition();
+            
+            // Update display
+            document.getElementById('current-radius').textContent = radius;
+            
             createCircle({ lat: center.lat(), lng: center.lng() }, radius);
         }
 
         function showCoordinates(lat, lng) {
             console.log('Current coordinates:', lat, lng);
+            document.getElementById('current-lat').textContent = lat.toFixed(8);
+            document.getElementById('current-lng').textContent = lng.toFixed(8);
         }
 
         function resetToDefault() {
@@ -419,7 +504,16 @@
         // Handle Google Maps authentication failure
         function gm_authFailure() {
             console.error('Google Maps authentication failed');
-            document.getElementById('map').innerHTML = '<div class="flex items-center justify-center h-full text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>Google Maps authentication failed</div>';
+            const mapElement = document.getElementById('map');
+            if (mapElement) {
+                mapElement.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-red-400 p-6 text-center">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <div class="text-lg font-semibold mb-2">Google Maps Authentication Failed</div>
+                        <div class="text-sm text-brown-300">API key tidak valid atau ada pembatasan akses</div>
+                    </div>
+                `;
+            }
         }
 
         // Update radius when input changes
