@@ -1,0 +1,97 @@
+DEBUGGING LOCATION STATUS ISSUE
+================================
+
+MASALAH:
+- Status lokasi di Android app tidak refresh otomatis
+- Tetap menunjukkan "Di Luar Area Kantor" padahal sudah di dalam area
+
+PERUBAHAN YANG SUDAH DILAKUKAN:
+1. Tambah logging lengkap di Android (MainActivity.kt, LocationRepository.kt)
+2. Tambah location updates real-time setiap 2 detik
+3. Tambah manual refresh dengan tap location bar
+4. Tambah logging di server endpoint /api/validation/location
+
+CARA TESTING:
+=============
+
+1. CEK DATABASE SETTINGS
+   Di server:
+   npm run check:office
+   
+   Akan menampilkan semua setting lokasi kantor dan yang aktif
+
+2. BERSIHKAN DUPLICATE SETTINGS (jika ada lebih dari 1 row)
+   Di server:
+   npm run clean:settings
+   
+   Akan hapus semua row kecuali yang pertama
+
+3. RESTART PM2
+   Di server:
+   pm2 restart presensi-api
+   pm2 logs presensi-api
+
+4. TESTING DI ANDROID
+   - Build dan install APK baru
+   - Login ke app
+   - Perhatikan logcat:
+     * Tag "MainActivity" - untuk location updates
+     * Tag "LocationRepository" - untuk API calls
+   - Tap location bar untuk manual refresh
+   - Lihat apakah status berubah
+
+5. CEK SERVER LOGS
+   Di server:
+   pm2 logs presensi-api --lines 50
+   
+   Cari log:
+   [Location Validation] User: xxx, Lat: xxx, Lng: xxx
+   [Location Validation] Office: Lat xxx, Lng xxx, Radius xxxm
+   [Location Validation] Result: isValid=xxx, distance=xxxm
+
+KEMUNGKINAN MASALAH:
+=====================
+
+1. MULTIPLE SETTINGS DI DATABASE
+   - Tabel pengaturan punya lebih dari 1 row
+   - LIMIT 1 ambil row pertama yang mungkin salah
+   - Solusi: npm run clean:settings
+
+2. GPS ACCURACY
+   - GPS phone tidak akurat
+   - Location tidak update
+   - Solusi: Pastikan GPS high accuracy mode
+
+3. CACHING DI ANDROID
+   - Location di-cache dan tidak update
+   - Solusi: Sudah ditambahkan requestLocationUpdates
+
+4. NETWORK ISSUE
+   - Request tidak sampai ke server
+   - Solusi: Cek logs di server dan Android
+
+LOGCAT COMMANDS:
+================
+
+# Filter MainActivity logs
+adb logcat -s MainActivity
+
+# Filter LocationRepository logs
+adb logcat -s LocationRepository
+
+# Filter semua logs app
+adb logcat | grep "com.fleur.attendance"
+
+# Clear logcat
+adb logcat -c
+
+NEXT STEPS:
+===========
+
+1. Jalankan npm run check:office untuk lihat settings
+2. Jika ada duplicate, jalankan npm run clean:settings
+3. Restart PM2: pm2 restart presensi-api
+4. Build APK baru dan test
+5. Monitor logs di server dan Android
+6. Tap location bar untuk manual refresh
+7. Lihat apakah status berubah sesuai lokasi sebenarnya

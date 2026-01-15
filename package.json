@@ -22,7 +22,9 @@
     "seed": "node scripts/seed.js run",
     "seed:clear": "node scripts/seed.js clear",
     "clean-photos": "node scripts/clean-photos.js",
-    "reset-all": "node scripts/reset-all.js"
+    "reset-all": "node scripts/reset-all.js",
+    "check:office": "node scripts/check-office-location.js",
+    "clean:settings": "node scripts/clean-duplicate-settings.js"
   },
   "dependencies": {
     "@tensorflow-models/face-detection": "^1.0.2",

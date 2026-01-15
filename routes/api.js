@@ -3206,12 +3206,15 @@ router.post('/validation/location', authenticateToken, async (req, res) => {
       });
     }
 
+    console.log(`[Location Validation] User: ${req.user.nik}, Lat: ${latitude}, Lng: ${longitude}`);
+
     // Get office location settings
     const [settingsRows] = await connection.execute(
       'SELECT lat_kantor, long_kantor, radius_meter FROM pengaturan LIMIT 1'
     );
 
     if (settingsRows.length === 0) {
+      console.log('[Location Validation] ERROR: No office location configured');
       return res.status(500).json({
         success: false,
         message: 'Office location not configured',
@@ -3220,6 +3223,7 @@ router.post('/validation/location', authenticateToken, async (req, res) => {
     }
 
     const settings = settingsRows[0];
+    console.log(`[Location Validation] Office: Lat ${settings.lat_kantor}, Lng ${settings.long_kantor}, Radius ${settings.radius_meter}m`);
 
     // Validate location
     const locationValidation = isLocationValid(
@@ -3229,6 +3233,8 @@ router.post('/validation/location', authenticateToken, async (req, res) => {
       parseFloat(settings.long_kantor),
       settings.radius_meter
     );
+
+    console.log(`[Location Validation] Result: isValid=${locationValidation.isValid}, distance=${locationValidation.distance}m`);
 
     res.json({
       success: true,
