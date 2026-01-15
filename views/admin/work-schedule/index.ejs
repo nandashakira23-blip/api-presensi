@@ -149,14 +149,14 @@
                                     <% schedules.forEach(function(schedule) { %>
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                                                <%= schedule.name %>
+                                                <%= schedule.nama %>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
-                                                <%= schedule.start_time %> - <%= schedule.end_time %>
+                                                <%= schedule.jam_masuk %> - <%= schedule.jam_keluar %>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
-                                                Masuk: <%= schedule.clock_in_start %> - <%= schedule.clock_in_end %><br>
-                                                Pulang: <%= schedule.clock_out_start %> - <%= schedule.clock_out_end %>
+                                                Masuk: <%= schedule.batas_absen_masuk_awal %> - <%= schedule.batas_absen_masuk_akhir %><br>
+                                                Pulang: <%= schedule.batas_absen_keluar_awal %> - <%= schedule.batas_absen_keluar_akhir %>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
                                                 <% if (schedule.is_active) { %>
@@ -177,7 +177,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <div class="flex space-x-2">
                                                     <% if (!schedule.is_active) { %>
-                                                        <button onclick="activateSchedule(<%= schedule.id %>, '<%= schedule.name %>')" 
+                                                        <button onclick="activateSchedule(<%= schedule.id %>, '<%= schedule.nama %>')" 
                                                                 class="text-green-400 hover:text-green-300 transition duration-200 p-2 rounded-lg hover:bg-green-900/30" 
                                                                 title="Aktifkan Jadwal">
                                                             <i class="fas fa-play"></i>

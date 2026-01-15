@@ -712,7 +712,7 @@ router.get('/work-schedule', requireAuth, (req, res) => {
     const query = `
         SELECT ws.*, 
                COUNT(k.id) as employee_count
-        FROM work_schedule ws
+        FROM jadwal_kerja ws
         LEFT JOIN karyawan k ON ws.id = k.work_schedule_id
         GROUP BY ws.id
         ORDER BY ws.created_at DESC
@@ -762,7 +762,7 @@ router.post('/work-schedule/add', requireAuth, (req, res) => {
     const workDaysJson = JSON.stringify(workDaysArray);
 
     const query = `
-        INSERT INTO work_schedule (name, start_time, end_time, clock_in_start, clock_in_end, clock_out_start, clock_out_end, work_days) 
+        INSERT INTO jadwal_kerja (nama, jam_masuk, jam_keluar, batas_absen_masuk_awal, batas_absen_masuk_akhir, batas_absen_keluar_awal, batas_absen_keluar_akhir, hari_kerja) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
@@ -782,7 +782,7 @@ router.post('/work-schedule/add', requireAuth, (req, res) => {
 router.get('/work-schedule/edit/:id', requireAuth, (req, res) => {
     const { id } = req.params;
     
-    const query = 'SELECT * FROM work_schedule WHERE id = ?';
+    const query = 'SELECT * FROM jadwal_kerja WHERE id = ?';
     
     db.query(query, [id], (err, results) => {
         if (err) {
@@ -818,8 +818,8 @@ router.post('/work-schedule/update', requireAuth, (req, res) => {
     const workDaysJson = JSON.stringify(workDaysArray);
 
     const query = `
-        UPDATE work_schedule 
-        SET name = ?, start_time = ?, end_time = ?, clock_in_start = ?, clock_in_end = ?, clock_out_start = ?, clock_out_end = ?, work_days = ?
+        UPDATE jadwal_kerja 
+        SET nama = ?, jam_masuk = ?, jam_keluar = ?, batas_absen_masuk_awal = ?, batas_absen_masuk_akhir = ?, batas_absen_keluar_awal = ?, batas_absen_keluar_akhir = ?, hari_kerja = ?
         WHERE id = ?
     `;
     
@@ -849,7 +849,7 @@ router.post('/work-schedule/activate', requireAuth, (req, res) => {
     }
 
     // First, deactivate all schedules
-    const deactivateQuery = 'UPDATE work_schedule SET is_active = FALSE';
+    const deactivateQuery = 'UPDATE jadwal_kerja SET is_active = FALSE';
     
     db.query(deactivateQuery, (err) => {
         if (err) {
@@ -858,7 +858,7 @@ router.post('/work-schedule/activate', requireAuth, (req, res) => {
         }
 
         // Then activate the selected schedule
-        const activateQuery = 'UPDATE work_schedule SET is_active = TRUE WHERE id = ?';
+        const activateQuery = 'UPDATE jadwal_kerja SET is_active = TRUE WHERE id = ?';
         
         db.query(activateQuery, [id], (err, results) => {
             if (err) {
@@ -894,7 +894,7 @@ router.post('/work-schedule/delete/:id', requireAuth, (req, res) => {
         }
 
         // Safe to delete
-        const deleteQuery = 'DELETE FROM work_schedule WHERE id = ?';
+        const deleteQuery = 'DELETE FROM jadwal_kerja WHERE id = ?';
         
         db.query(deleteQuery, [id], (err, results) => {
             if (err) {
