@@ -61,18 +61,11 @@ async function seedDatabase() {
             ('EMP008', 'Lisa Wilson', 8, FALSE)
         `);
 
-        // 5. Insert default work schedule
-        console.log('Seeding default work schedule...');
-        await connection.execute(`
-            INSERT IGNORE INTO work_schedule (name, start_time, end_time, clock_in_start, clock_in_end, clock_out_start, clock_out_end, work_days, is_active) 
-            VALUES ('Default Schedule', '08:00:00', '17:00:00', '07:30:00', '08:30:00', '16:30:00', '17:30:00', '["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]', TRUE)
-        `);
-
-        // 6. Assign work schedule to employees
+        // 5. Assign default work schedule to employees (use existing schedule from migration)
         console.log('Assigning work schedules to employees...');
         await connection.execute(`
             UPDATE karyawan 
-            SET work_schedule_id = (SELECT id FROM work_schedule WHERE is_active = TRUE LIMIT 1)
+            SET work_schedule_id = (SELECT id FROM jadwal_kerja WHERE is_active = TRUE LIMIT 1)
             WHERE work_schedule_id IS NULL
         `);
 
@@ -97,7 +90,7 @@ async function seedDatabase() {
         console.log('   - 8 job positions');
         console.log('   - 2 admin users');
         console.log('   - 8 sample employees');
-        console.log('   - 1 default work schedule');
+        console.log('   - Work schedules assigned (from migration)');
         console.log('   - 7 face recognition settings');
         console.log('');
         console.log('Admin login credentials:');
@@ -113,6 +106,12 @@ async function seedDatabase() {
         console.log('   EMP006 - Sarah Davis (Cleaning Service)');
         console.log('   EMP007 - Tom Anderson (Security)');
         console.log('   EMP008 - Lisa Wilson (Admin)');
+        console.log('');
+        console.log('Work Schedules (from migration 009):');
+        console.log('   - Jam Kerja Setiap Hari (07:00-18:00, 7 days)');
+        console.log('   - Morning Shift (06:30-14:30)');
+        console.log('   - Middle Shift (08:30-16:30)');
+        console.log('   - Evening Shift (10:30-18:30)');
         console.log('');
         console.log('Ready to run: npm start');
 
@@ -174,7 +173,7 @@ async function clearSeeds() {
         await connection.execute('DELETE FROM admin');
         
         console.log('Clearing work schedules...');
-        await connection.execute('DELETE FROM work_schedule');
+        await connection.execute('DELETE FROM jadwal_kerja WHERE id > 4'); // Keep the 4 default schedules from migration
         
         console.log('Clearing face recognition settings...');
         await connection.execute('DELETE FROM face_recognition_settings');
