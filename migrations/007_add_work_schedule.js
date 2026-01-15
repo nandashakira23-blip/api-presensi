@@ -18,24 +18,24 @@ async function up(connection) {
     try {
         // Tabel jadwal kerja
         await connection.execute(`
-            CREATE TABLE IF NOT EXISTS work_schedule (
+            CREATE TABLE IF NOT EXISTS jadwal_kerja (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(100) NOT NULL COMMENT 'Nama jadwal kerja (e.g., Regular, Shift Pagi, Shift Malam)',
-                start_time TIME NOT NULL COMMENT 'Jam mulai kerja',
-                end_time TIME NOT NULL COMMENT 'Jam selesai kerja',
-                clock_in_start TIME NOT NULL COMMENT 'Jam mulai bisa clock in',
-                clock_in_end TIME NOT NULL COMMENT 'Jam terakhir bisa clock in',
-                clock_out_start TIME NOT NULL COMMENT 'Jam mulai bisa clock out',
-                clock_out_end TIME NOT NULL COMMENT 'Jam terakhir bisa clock out',
-                break_start TIME NULL COMMENT 'Jam mulai istirahat (optional)',
-                break_end TIME NULL COMMENT 'Jam selesai istirahat (optional)',
-                work_days JSON NOT NULL COMMENT 'Hari kerja: ["monday","tuesday","wednesday","thursday","friday"]',
+                nama VARCHAR(100) NOT NULL COMMENT 'Nama jadwal kerja (e.g., Regular, Shift Pagi, Shift Malam)',
+                jam_masuk TIME NOT NULL COMMENT 'Jam mulai kerja',
+                jam_keluar TIME NOT NULL COMMENT 'Jam selesai kerja',
+                batas_absen_masuk_awal TIME NOT NULL COMMENT 'Jam mulai bisa clock in',
+                batas_absen_masuk_akhir TIME NOT NULL COMMENT 'Jam terakhir bisa clock in',
+                batas_absen_keluar_awal TIME NOT NULL COMMENT 'Jam mulai bisa clock out',
+                batas_absen_keluar_akhir TIME NOT NULL COMMENT 'Jam terakhir bisa clock out',
+                jam_istirahat_mulai TIME NULL COMMENT 'Jam mulai istirahat (optional)',
+                jam_istirahat_selesai TIME NULL COMMENT 'Jam selesai istirahat (optional)',
+                hari_kerja JSON NOT NULL COMMENT 'Hari kerja: ["monday","tuesday","wednesday","thursday","friday"]',
                 is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )
         `);
-        console.log('Created work_schedule table');
+        console.log('Created jadwal_kerja table');
 
         // Cek apakah kolom work_schedule_id sudah ada
         const [columns] = await connection.execute(`
@@ -57,7 +57,7 @@ async function up(connection) {
             // Tambah foreign key constraint
             await connection.execute(`
                 ALTER TABLE karyawan 
-                ADD FOREIGN KEY (work_schedule_id) REFERENCES work_schedule(id)
+                ADD FOREIGN KEY (work_schedule_id) REFERENCES jadwal_kerja(id)
             `);
             console.log('Added foreign key constraint for work_schedule_id');
         } else {
@@ -95,7 +95,7 @@ async function up(connection) {
             // Tambah foreign key constraint
             await connection.execute(`
                 ALTER TABLE presensi 
-                ADD FOREIGN KEY (work_schedule_id) REFERENCES work_schedule(id)
+                ADD FOREIGN KEY (work_schedule_id) REFERENCES jadwal_kerja(id)
             `);
             console.log('Added foreign key constraint for presensi work_schedule_id');
         } else {
@@ -103,10 +103,10 @@ async function up(connection) {
         }
 
         // Jadwal kerja default (7 hari seminggu: 07:00-18:00)
-        const [existingSchedules] = await connection.execute('SELECT COUNT(*) as count FROM work_schedule');
+        const [existingSchedules] = await connection.execute('SELECT COUNT(*) as count FROM jadwal_kerja');
         if (existingSchedules[0].count === 0) {
             await connection.execute(`
-                INSERT INTO work_schedule (name, start_time, end_time, clock_in_start, clock_in_end, clock_out_start, clock_out_end, work_days) VALUES
+                INSERT INTO jadwal_kerja (nama, jam_masuk, jam_keluar, batas_absen_masuk_awal, batas_absen_masuk_akhir, batas_absen_keluar_awal, batas_absen_keluar_akhir, hari_kerja) VALUES
                 ('Jam Kerja Setiap Hari', '07:00:00', '18:00:00', '06:30:00', '08:00:00', '17:30:00', '19:00:00', '["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]')
             `);
             console.log('Inserted default work schedule (7AM-6PM, 7 days a week)');
@@ -141,7 +141,7 @@ async function up(connection) {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (karyawan_id) REFERENCES karyawan(id) ON DELETE CASCADE,
-                FOREIGN KEY (work_schedule_id) REFERENCES work_schedule(id),
+                FOREIGN KEY (work_schedule_id) REFERENCES jadwal_kerja(id),
                 UNIQUE KEY unique_employee_date (karyawan_id, work_date)
             )
         `);
@@ -213,8 +213,8 @@ async function down(connection) {
             await connection.execute('ALTER TABLE karyawan DROP COLUMN work_schedule_id');
         }
         
-        // Drop work_schedule table
-        await connection.execute('DROP TABLE IF EXISTS work_schedule');
+        // Drop jadwal_kerja table
+        await connection.execute('DROP TABLE IF EXISTS jadwal_kerja');
         
         console.log('Migration rolled back successfully');
         
