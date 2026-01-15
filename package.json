@@ -18,9 +18,11 @@
     "migrate:fresh": "node scripts/migrate.js down && node scripts/migrate.js up",
     "db:fresh": "node scripts/fresh-install.js",
     "db:backup": "node scripts/backup-database.js",
+    "db:clear": "node scripts/clear-database.js",
     "seed": "node scripts/seed.js run",
     "seed:clear": "node scripts/seed.js clear",
-    "clean-photos": "node scripts/clean-photos.js"
+    "clean-photos": "node scripts/clean-photos.js",
+    "reset-all": "node scripts/reset-all.js"
   },
   "dependencies": {
     "@tensorflow-models/face-detection": "^1.0.2",
