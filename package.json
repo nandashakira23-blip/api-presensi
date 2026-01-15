@@ -1,7 +1,7 @@
 {
   "name": "sistem-presensi-fleur-atelier",
   "version": "1.0.0",
-  "description": "Sistem Presensi untuk Fleur Atelier d'artistes",
+  "description": "Sistem Presensi untuk FLEUR CAFÉ - Atelier d'artistes",
   "main": "app.js",
   "scripts": {
     "start": "node --no-deprecation app.js",
