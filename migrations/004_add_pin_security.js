@@ -15,10 +15,10 @@ async function up(connection) {
     console.log('Running migration: Add PIN security...');
 
     try {
-        // Kolom PIN di tabel karyawan
+        // Kolom PIN di tabel karyawan (VARCHAR(255) untuk bcrypt hash)
         await connection.execute(`
             ALTER TABLE karyawan 
-            ADD COLUMN pin VARCHAR(6) DEFAULT NULL AFTER password,
+            ADD COLUMN pin VARCHAR(255) DEFAULT NULL AFTER password,
             ADD COLUMN pin_attempts INT DEFAULT 0 AFTER pin,
             ADD COLUMN pin_locked_until TIMESTAMP NULL DEFAULT NULL AFTER pin_attempts
         `);
