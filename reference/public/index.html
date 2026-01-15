@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Matching App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 30px;
+            border: 2px dashed #e0e0e0;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .section:hover {
+            border-color: #4facfe;
+            background: #f8f9ff;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #4facfe;
+            background: #f0f8ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #4facfe;
+            background: #e6f3ff;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+
+        .delete-btn {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .delete-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .preview-image {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 10px;
+            margin: 15px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .results {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .face-result {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4facfe;
+        }
+
+        .match-indicator {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .match-yes {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .match-no {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4facfe;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .reference-info {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        /* Tab styles */
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 12px 24px;
+            cursor: pointer;
+            font-size: 1em;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            color: #4facfe;
+            border-bottom-color: #4facfe;
+            font-weight: 600;
+        }
+
+        .tab-btn:hover {
+            color: #4facfe;
+            background: #f8f9ff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Camera styles */
+        .camera-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .camera-video {
+            width: 100%;
+            max-width: 400px;
+            height: 300px;
+            border-radius: 10px;
+            border: 2px solid #ddd;
+            background: #f0f0f0;
+            object-fit: cover;
+        }
+
+        .camera-canvas {
+            max-width: 400px;
+            border-radius: 10px;
+            border: 2px solid #4facfe;
+            margin: 10px 0;
+        }
+
+        .camera-controls {
+            margin-top: 15px;
+        }
+
+        .camera-controls button {
+            margin: 5px;
+        }
+
+        .captured-photo {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 10px;
+            margin: 15px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border: 2px solid #4facfe;
+        }
+
+        /* Real-time styles */
+        .realtime-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .realtime-status {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4facfe;
+        }
+
+        .realtime-video-container {
+            position: relative;
+            display: inline-block;
+            margin: 20px 0;
+        }
+
+        .realtime-video {
+            width: 100%;
+            max-width: 500px;
+            height: 375px;
+            border-radius: 10px;
+            border: 2px solid #4facfe;
+            background: #f0f0f0;
+            object-fit: cover;
+        }
+
+        .realtime-canvas {
+            max-width: 500px;
+            border-radius: 10px;
+            border: 2px solid #4facfe;
+            margin: 10px 0;
+        }
+
+        .realtime-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            border-radius: 10px;
+        }
+
+        .realtime-controls {
+            margin: 20px 0;
+        }
+
+        .realtime-results {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            min-height: 100px;
+        }
+
+        .face-box {
+            position: absolute;
+            border: 3px solid;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+
+        .face-box.match {
+            border-color: #28a745;
+            background: rgba(40, 167, 69, 0.1);
+        }
+
+        .face-box.no-match {
+            border-color: #dc3545;
+            background: rgba(220, 53, 69, 0.1);
+        }
+
+        .face-label {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .realtime-stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px 0;
+            font-size: 0.9em;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #4facfe;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Face Matching App</h1>
+            <p>Upload foto referensi dan cocokkan dengan foto lainnya menggunakan AI</p>
+            <div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 8px; margin-top: 15px;">
+                <small>🤖 <strong>AI Powered:</strong> Menggunakan TensorFlow.js MediaPipe Face Detection</small>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Section Upload Referensi -->
+            <div class="section">
+                <h2>📸 Upload Foto Referensi</h2>
+                <p>Upload foto yang akan dijadikan referensi untuk pencocokan wajah</p>
+                
+                <div id="referenceStatus"></div>
+                
+                <!-- Tab buttons -->
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab('reference', 'upload')">📁 Upload File</button>
+                    <button class="tab-btn" onclick="switchTab('reference', 'camera')">📷 Ambil Foto</button>
+                </div>
+                
+                <!-- Upload tab -->
+                <div id="reference-upload-tab" class="tab-content active">
+                    <div class="upload-area" onclick="document.getElementById('referenceInput').click()">
+                        <p>🖼️ Klik atau drag & drop foto referensi di sini</p>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 10px;">Format: JPG, PNG, JPEG</p>
+                    </div>
+                    <input type="file" id="referenceInput" class="file-input" accept="image/*">
+                </div>
+                
+                <!-- Camera tab -->
+                <div id="reference-camera-tab" class="tab-content">
+                    <div class="camera-container">
+                        <video id="referenceVideo" class="camera-video" autoplay playsinline></video>
+                        <canvas id="referenceCanvas" class="camera-canvas" style="display: none;"></canvas>
+                        <div class="camera-controls">
+                            <button class="upload-btn" onclick="startCamera('reference')">🎥 Buka Kamera</button>
+                            <button class="upload-btn" onclick="capturePhoto('reference')" id="referenceCaptureBtn" style="display: none;">📸 Ambil Foto</button>
+                            <button class="delete-btn" onclick="stopCamera('reference')" id="referenceStopBtn" style="display: none;">❌ Tutup Kamera</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="upload-btn" onclick="uploadReference()" id="uploadReferenceBtn">
+                    📤 Upload Referensi ke Database
+                </button>
+                
+                <div id="referencePreview"></div>
+                <div id="referenceResult"></div>
+            </div>
+
+            <!-- Section Pencocokan -->
+            <div class="section">
+                <h2>🎯 Cocokkan Wajah</h2>
+                <p>Upload foto untuk dicocokkan dengan foto referensi</p>
+                
+                <!-- Tab buttons -->
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab('match', 'upload')">📁 Upload File</button>
+                    <button class="tab-btn" onclick="switchTab('match', 'camera')">📷 Ambil Foto</button>
+                    <button class="tab-btn" onclick="switchTab('match', 'realtime')">🎥 Real-time</button>
+                </div>
+                
+                <!-- Upload tab -->
+                <div id="match-upload-tab" class="tab-content active">
+                    <div class="upload-area" onclick="document.getElementById('matchInput').click()">
+                        <p>📷 Klik atau drag & drop foto untuk dicocokkan</p>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 10px;">Format: JPG, PNG, JPEG</p>
+                    </div>
+                    <input type="file" id="matchInput" class="file-input" accept="image/*">
+                </div>
+                
+                <!-- Camera tab -->
+                <div id="match-camera-tab" class="tab-content">
+                    <div class="camera-container">
+                        <video id="matchVideo" class="camera-video" autoplay playsinline></video>
+                        <canvas id="matchCanvas" class="camera-canvas" style="display: none;"></canvas>
+                        <div class="camera-controls">
+                            <button class="upload-btn" onclick="startCamera('match')">🎥 Buka Kamera</button>
+                            <button class="upload-btn" onclick="capturePhoto('match')" id="matchCaptureBtn" style="display: none;">📸 Ambil Foto</button>
+                            <button class="delete-btn" onclick="stopCamera('match')" id="matchStopBtn" style="display: none;">❌ Tutup Kamera</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Real-time tab -->
+                <div id="match-realtime-tab" class="tab-content">
+                    <div class="realtime-container">
+                        <div class="realtime-status" id="realtimeStatus">
+                            <p>📋 Pastikan foto referensi sudah diupload untuk memulai real-time matching</p>
+                        </div>
+                        <div class="realtime-video-container">
+                            <video id="realtimeVideo" class="realtime-video" autoplay playsinline></video>
+                            <canvas id="realtimeCanvas" class="realtime-canvas" style="display: none;"></canvas>
+                            <div class="realtime-overlay" id="realtimeOverlay"></div>
+                        </div>
+                        <div class="realtime-controls">
+                            <button class="upload-btn" onclick="startRealTimeMatching()" id="startRealtimeBtn">🎥 Mulai Real-time Matching</button>
+                            <button class="delete-btn" onclick="stopRealTimeMatching()" id="stopRealtimeBtn" style="display: none;">⏹️ Stop Real-time</button>
+                        </div>
+                        <div class="realtime-results" id="realtimeResults"></div>
+                    </div>
+                </div>
+                
+                <button class="upload-btn" onclick="matchFace()">Cocokkan Wajah</button>
+                
+                <div id="matchPreview"></div>
+                <div id="matchResult"></div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Memproses gambar...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

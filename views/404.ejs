@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Halaman Tidak Ditemukan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark': {
+                            800: '#212529',
+                            900: '#1a1d20',
+                        },
+                        'brown': {
+                            300: '#d4bfa6',
+                            400: '#c4a882',
+                            600: '#a67c52',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #1a1d20;
+        }
+        .bounce {
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        .fade-in {
+            animation: fadeIn 1s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .glow {
+            box-shadow: 0 0 20px rgba(166, 124, 82, 0.3);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="text-center max-w-2xl mx-auto">
+        <div class="mb-8 text-8xl bounce">
+            <i class="fas fa-exclamation-triangle text-brown-400"></i>
+        </div>
+        
+        <h1 class="text-9xl font-bold text-brown-600 mb-4 bounce">404</h1>
+        
+        <h2 class="text-3xl font-bold text-white mb-4 fade-in">Halaman Tidak Ditemukan</h2>
+        
+        <p class="text-brown-300 text-lg mb-8 fade-in">
+            Maaf, halaman yang Anda cari tidak ada atau telah dipindahkan.
+        </p>
+
+        <div class="flex flex-wrap gap-4 justify-center mb-8 fade-in">
+            <a href="/admin/dashboard" class="px-6 py-3 bg-brown-600 hover:bg-brown-400 text-white rounded-lg font-medium transition-all duration-200 glow">
+                <i class="fas fa-home mr-2"></i> Kembali ke Dashboard
+            </a>
+            <a href="javascript:history.back()" class="px-6 py-3 bg-dark-800 hover:bg-dark-700 text-brown-300 border border-brown-600/30 rounded-lg font-medium transition-all duration-200">
+                <i class="fas fa-arrow-left mr-2"></i> Halaman Sebelumnya
+            </a>
+        </div>
+
+        <div class="bg-dark-800 border border-brown-600/30 rounded-xl p-6 text-left fade-in glow">
+            <h3 class="text-lg font-bold text-white mb-4">
+                <i class="fas fa-lightbulb text-brown-400 mr-2"></i> Saran:
+            </h3>
+            <ul class="space-y-2 text-brown-300">
+                <li><i class="fas fa-check text-brown-400 mr-2"></i> Periksa kembali URL yang Anda masukkan</li>
+                <li><i class="fas fa-check text-brown-400 mr-2"></i> Gunakan menu navigasi untuk menemukan halaman</li>
+                <li><i class="fas fa-check text-brown-400 mr-2"></i> Kembali ke halaman utama</li>
+                <li><i class="fas fa-check text-brown-400 mr-2"></i> Hubungi administrator jika masalah berlanjut</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') window.history.back();
+            if (e.key === 'h' || e.key === 'H') window.location.href = '/admin/dashboard';
+        });
+    </script>
+</body>
+</html>

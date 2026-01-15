@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark': {
+                            50: '#f8f9fa',
+                            100: '#e9ecef',
+                            200: '#dee2e6',
+                            300: '#ced4da',
+                            400: '#adb5bd',
+                            500: '#6c757d',
+                            600: '#495057',
+                            700: '#343a40',
+                            800: '#212529',
+                            900: '#1a1d20',
+                        },
+                        'brown': {
+                            50: '#faf8f5',
+                            100: '#f0ebe4',
+                            200: '#e4d5c7',
+                            300: '#d4bfa6',
+                            400: '#c4a882',
+                            500: '#b8956b',
+                            600: '#a67c52',
+                            700: '#8b6914',
+                            800: '#6d4c0f',
+                            900: '#4a320a',
+                        },
+                        'coffee': {
+                            50: '#faf9f7',
+                            100: '#f0ede8',
+                            200: '#e0d5c7',
+                            300: '#d0bfa6',
+                            400: '#c0a882',
+                            500: '#a67c52',
+                            600: '#8b6914',
+                            700: '#6d4c0f',
+                            800: '#4a320a',
+                            900: '#2d1e06',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom Dark Theme Styles */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #212529;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #a67c52;
+            border-radius: 4px;
+            border: 1px solid #343a40;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #b8956b;
+        }
+        .solid-background {
+            background: #1a1d20;
+        }
+        .glow-brown {
+            box-shadow: 0 0 20px rgba(166, 124, 82, 0.3);
+        }
+        .glow-brown:hover {
+            box-shadow: 0 0 30px rgba(166, 124, 82, 0.5);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+            transform: translateY(0);
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .text-glow {
+            text-shadow: 0 0 10px rgba(166, 124, 82, 0.5);
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .glass-effect {
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            background: rgba(33, 37, 41, 0.8);
+            border: 1px solid rgba(166, 124, 82, 0.3);
+        }
+        
+        /* Tab System Styles */
+        .tab-button {
+            color: #d4bfa6;
+            background: transparent;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-button:hover {
+            color: #b8956b;
+            background: rgba(166, 124, 82, 0.1);
+        }
+        .tab-button.active {
+            color: #ffffff;
+            background: rgba(166, 124, 82, 0.2);
+            border-bottom-color: #a67c52;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+    <!-- Google Maps tidak memerlukan CSS tambahan -->
+</head>
+<body class="bg-dark-900 min-h-screen solid-background">
+    <%- include('../partials/navbar') %>
+
+    <!-- Content with proper spacing for fixed navbar -->
+    <div class="pt-16 sm:pt-20 lg:pt-20">
+        <!-- Mobile menu spacing -->
+        <div class="lg:hidden pt-16 sm:pt-20"></div>
+        
+        <!-- Sidebar & Content -->
+        <div class="flex flex-col lg:flex-row">
+            <%- include('../partials/sidebar', { currentPage: 'laporan' }) %>
+
+            <!-- Main Content with sidebar spacing -->
+            <div class="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 min-h-screen">
+                <div class="mb-6 sm:mb-8">
+                    <div class="flex items-center space-x-3 mb-2">
+                        <div class="w-8 h-8 flex items-center justify-center">
+                            <i class="fas fa-chart-line text-brown-400 text-xl"></i>
+                        </div>
+                        <h2 class="text-2xl sm:text-3xl font-bold text-white">Laporan Absensi</h2>
+                    </div>
+                    <p class="text-brown-300 text-sm sm:text-base">Laporan kehadiran karyawan Fleur Atelier d'artistes</p>
+                </div>
+
+                <!-- Filter -->
+                <div class="bg-dark-800 rounded-xl shadow-2xl p-4 sm:p-6 mb-6 border border-brown-600/30">
+                    <form method="GET" action="/admin/laporan" class="flex flex-col sm:flex-row sm:items-end space-y-4 sm:space-y-0 sm:space-x-4">
+                        <div class="flex-1">
+                            <label for="tanggal" class="block text-sm font-medium text-brown-300 mb-2">
+                                <i class="fas fa-calendar mr-2"></i>Filter Tanggal
+                            </label>
+                            <input type="date" id="tanggal" name="tanggal" value="<%= tanggal %>"
+                                   class="w-full px-4 py-2 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 transition duration-200 text-white">
+                        </div>
+                        <div class="flex space-x-2">
+                            <button type="submit" class="bg-brown-600 hover:bg-brown-500 text-white px-4 sm:px-6 py-2 rounded-lg transition duration-200 text-sm sm:text-base shadow-lg">
+                                <i class="fas fa-search mr-2"></i>Filter
+                            </button>
+                            <a href="/admin/laporan" class="bg-gray-600 hover:bg-gray-500 text-white px-4 sm:px-6 py-2 rounded-lg transition duration-200 text-sm sm:text-base shadow-lg">
+                                <i class="fas fa-refresh mr-2"></i>Reset
+                            </a>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Tab Navigation -->
+                <div class="bg-dark-800 rounded-xl shadow-2xl mb-6 border border-brown-600/30">
+                    <div class="flex border-b border-brown-600/30">
+                        <button id="tabTable" class="tab-button active flex-1 px-6 py-4 text-center font-medium transition duration-200 rounded-tl-xl">
+                            <i class="fas fa-table mr-2"></i>
+                            Tabel Absensi
+                        </button>
+                        <button id="tabMap" class="tab-button flex-1 px-6 py-4 text-center font-medium transition duration-200 rounded-tr-xl">
+                            <i class="fas fa-map-marked-alt mr-2"></i>
+                            Peta Lokasi
+                        </button>
+                        <button id="tabSummary" class="tab-button flex-1 px-6 py-4 text-center font-medium transition duration-200 rounded-tr-xl">
+                            <i class="fas fa-chart-pie mr-2"></i>
+                            Ringkasan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Table -->
+                <div id="contentTable" class="tab-content active">
+                <div class="bg-dark-800 rounded-xl shadow-2xl overflow-hidden border border-brown-600/30">
+                    <!-- Mobile Card View -->
+                    <div class="block lg:hidden">
+                        <% if (presensi.length === 0) { %>
+                            <div class="p-6 text-center text-brown-300">
+                                <i class="fas fa-inbox text-4xl mb-4 text-brown-400"></i>
+                                <p>Tidak ada data presensi untuk tanggal yang dipilih</p>
+                            </div>
+                        <% } else { %>
+                            <% presensi.forEach(function(p) { %>
+                                <div class="border-b border-brown-600/30 p-4">
+                                    <div class="flex items-start space-x-4">
+                                        <img src="/uploads/presensi/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
+                                             class="w-16 h-16 rounded-lg object-cover cursor-pointer flex-shrink-0 border-2 border-brown-600/50"
+                                             onclick="showImage('/uploads/presensi/<%= p.foto_checkin %>')">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <h3 class="font-semibold text-white truncate"><%= p.nama %></h3>
+                                                <% if (p.status_lokasi === 'Dalam Area') { %>
+                                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-900/50 text-green-300 border border-green-600/50">
+                                                        <i class="fas fa-check-circle mr-1"></i>
+                                                        Dalam Area
+                                                    </span>
+                                                <% } else { %>
+                                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-900/50 text-red-300 border border-red-600/50">
+                                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                        Luar Area
+                                                    </span>
+                                                <% } %>
+                                            </div>
+                                            <p class="text-sm text-brown-300 mb-1"><%= p.jabatan %></p>
+                                            <p class="text-sm text-brown-300 mb-2"><%= new Date(p.waktu).toLocaleString('id-ID') %></p>
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-sm text-brown-300">Jarak: <%= p.jarak_meter %> m</span>
+                                                <a href="https://www.google.com/maps?q=<%= p.lat_absen %>,<%= p.long_absen %>" 
+                                                   target="_blank" 
+                                                   class="text-blue-400 hover:text-blue-300 transition duration-200 text-sm">
+                                                    <i class="fas fa-map-marker-alt mr-1"></i>
+                                                    Lihat Maps
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <% }); %>
+                        <% } %>
+                    </div>
+
+                    <!-- Desktop Table View -->
+                    <div class="hidden lg:block overflow-x-auto">
+                        <table class="min-w-full divide-y divide-brown-600/30">
+                            <thead class="bg-brown-800">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Nama</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Jabatan</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Waktu</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Foto Selfie</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Status Lokasi</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Jarak</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Maps</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-brown-600/30">
+                                <% if (presensi.length === 0) { %>
+                                    <tr>
+                                        <td colspan="7" class="px-6 py-8 text-center text-brown-300">
+                                            <i class="fas fa-inbox text-4xl mb-4 text-brown-400"></i>
+                                            <p>Tidak ada data presensi untuk tanggal yang dipilih</p>
+                                        </td>
+                                    </tr>
+                                <% } else { %>
+                                    <% presensi.forEach(function(p) { %>
+                                        <tr class="hover:bg-dark-600/50 transition duration-200">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                                                <%= p.nama %>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
+                                                <%= p.jabatan %>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
+                                                <%= new Date(p.waktu).toLocaleString('id-ID') %>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
+                                                <img src="/uploads/presensi/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
+                                                     class="w-12 h-12 rounded-lg object-cover cursor-pointer border-2 border-brown-600/50 hover:border-brown-400 transition duration-200"
+                                                     onclick="showImage('/uploads/presensi/<%= p.foto_checkin %>')">
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <% if (p.status_lokasi === 'Dalam Area') { %>
+                                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-900/50 text-green-300 border border-green-600/50">
+                                                        <i class="fas fa-check-circle mr-1"></i>
+                                                        Dalam Area
+                                                    </span>
+                                                <% } else { %>
+                                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-900/50 text-red-300 border border-red-600/50">
+                                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                        Luar Area
+                                                    </span>
+                                                <% } %>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
+                                                <%= p.jarak_meter %> m
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <a href="https://www.google.com/maps?q=<%= p.lat_absen %>,<%= p.long_absen %>" 
+                                                   target="_blank" 
+                                                   class="text-blue-400 hover:text-blue-300 transition duration-200">
+                                                    <i class="fas fa-map-marker-alt mr-1"></i>
+                                                    Lihat Maps
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Summary -->
+                <% if (presensi.length > 0) { %>
+                    <div class="mt-6 bg-dark-800 rounded-xl shadow-2xl p-4 sm:p-6 border border-brown-600/30">
+                        <h3 class="text-lg font-bold text-white mb-4 flex items-center">
+                            <i class="fas fa-chart-pie text-brown-400 mr-3"></i>
+                            Ringkasan
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="text-center p-4 bg-blue-900/50 rounded-lg border border-blue-600/30">
+                                <div class="text-2xl font-bold text-blue-300"><%= presensi.length %></div>
+                                <div class="text-sm text-blue-200">Total Presensi</div>
+                            </div>
+                            <div class="text-center p-4 bg-green-900/50 rounded-lg border border-green-600/30">
+                                <div class="text-2xl font-bold text-green-300">
+                                    <%= presensi.filter(p => p.status_lokasi === 'Dalam Area').length %>
+                                </div>
+                                <div class="text-sm text-green-200">Dalam Area</div>
+                            </div>
+                            <div class="text-center p-4 bg-red-900/50 rounded-lg border border-red-600/30">
+                                <div class="text-2xl font-bold text-red-300">
+                                    <%= presensi.filter(p => p.status_lokasi === 'Luar Area').length %>
+                                </div>
+                                <div class="text-sm text-red-200">Luar Area</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Map View -->
+                    <div class="mt-6 bg-dark-800 rounded-xl shadow-2xl p-4 sm:p-6 border border-brown-600/30">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-white flex items-center">
+                                <i class="fas fa-map text-brown-400 mr-3"></i>
+                                Peta Lokasi Presensi
+                            </h3>
+                            <button id="toggleMap" class="bg-brown-600 hover:bg-brown-500 text-white px-4 py-2 rounded-lg transition duration-200 text-sm shadow-lg">
+                                <i class="fas fa-map mr-2"></i>Tampilkan Peta
+                            </button>
+                        </div>
+                        <div id="attendanceMap" class="hidden rounded-lg h-64 sm:h-80 border border-brown-600/50"></div>
+                        <div id="mapLegend" class="hidden mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                            <div class="flex items-center text-brown-200">
+                                <div class="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+                                <span>Lokasi Kantor</span>
+                            </div>
+                            <div class="flex items-center text-brown-200">
+                                <div class="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
+                                <span>Presensi Dalam Area</span>
+                            </div>
+                            <div class="flex items-center text-brown-200">
+                                <div class="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
+                                <span>Presensi Luar Area</span>
+                            </div>
+                            <div class="flex items-center text-brown-200">
+                                <div class="w-4 h-4 border-2 border-red-500 rounded-full mr-2 bg-red-100"></div>
+                                <span>Radius Area Kantor</span>
+                            </div>
+                        </div>
+                    </div>
+                <% } %>
+                </div>
+
+                <!-- Tab Content: Map -->
+                <div id="contentMap" class="tab-content">
+                    <% if (presensi.length === 0) { %>
+                        <div class="bg-dark-800 rounded-xl shadow-2xl p-6 border border-brown-600/30 text-center text-brown-300">
+                            <i class="fas fa-inbox text-4xl mb-4 text-brown-400"></i>
+                            <p>Tidak ada data presensi untuk ditampilkan di peta</p>
+                        </div>
+                    <% } else { %>
+                        <div class="bg-dark-800 rounded-xl shadow-2xl p-4 sm:p-6 border border-brown-600/30">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-white flex items-center">
+                                    <i class="fas fa-map text-brown-400 mr-3"></i>
+                                    Peta Lokasi Presensi
+                                </h3>
+                            </div>
+                            <div id="attendanceMapTab" class="rounded-lg h-96 border border-brown-600/50"></div>
+                            <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                                <div class="flex items-center text-brown-200">
+                                    <div class="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+                                    <span>Lokasi Kantor</span>
+                                </div>
+                                <div class="flex items-center text-brown-200">
+                                    <div class="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
+                                    <span>Presensi Dalam Area</span>
+                                </div>
+                                <div class="flex items-center text-brown-200">
+                                    <div class="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
+                                    <span>Presensi Luar Area</span>
+                                </div>
+                                <div class="flex items-center text-brown-200">
+                                    <div class="w-4 h-4 border-2 border-red-500 rounded-full mr-2 bg-red-100"></div>
+                                    <span>Radius Area Kantor</span>
+                                </div>
+                            </div>
+                        </div>
+                    <% } %>
+                </div>
+
+                <!-- Tab Content: Summary -->
+                <div id="contentSummary" class="tab-content">
+                    <% if (presensi.length === 0) { %>
+                        <div class="bg-dark-800 rounded-xl shadow-2xl p-6 border border-brown-600/30 text-center text-brown-300">
+                            <i class="fas fa-inbox text-4xl mb-4 text-brown-400"></i>
+                            <p>Tidak ada data presensi untuk ditampilkan ringkasan</p>
+                        </div>
+                    <% } else { %>
+                        <!-- Statistics Cards -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+                            <div class="bg-dark-800 rounded-xl shadow-2xl p-6 border border-brown-600/30 text-center">
+                                <div class="text-3xl font-bold text-blue-300 mb-2"><%= presensi.length %></div>
+                                <div class="text-brown-200 mb-2">Total Presensi</div>
+                                <i class="fas fa-users text-blue-400 text-2xl"></i>
+                            </div>
+                            <div class="bg-dark-800 rounded-xl shadow-2xl p-6 border border-brown-600/30 text-center">
+                                <div class="text-3xl font-bold text-green-300 mb-2">
+                                    <%= presensi.filter(p => p.status_lokasi === 'Dalam Area').length %>
+                                </div>
+                                <div class="text-brown-200 mb-2">Dalam Area</div>
+                                <i class="fas fa-check-circle text-green-400 text-2xl"></i>
+                            </div>
+                            <div class="bg-dark-800 rounded-xl shadow-2xl p-6 border border-brown-600/30 text-center">
+                                <div class="text-3xl font-bold text-red-300 mb-2">
+                                    <%= presensi.filter(p => p.status_lokasi === 'Luar Area').length %>
+                                </div>
+                                <div class="text-brown-200 mb-2">Luar Area</div>
+                                <i class="fas fa-exclamation-triangle text-red-400 text-2xl"></i>
+                            </div>
+                        </div>
+
+                        <!-- Percentage Chart -->
+                        <div class="bg-dark-800 rounded-xl shadow-2xl p-6 border border-brown-600/30 mb-6">
+                            <h3 class="text-lg font-bold text-white mb-4 flex items-center">
+                                <i class="fas fa-chart-pie text-brown-400 mr-3"></i>
+                                Persentase Kehadiran
+                            </h3>
+                            <div class="space-y-4">
+                                <% 
+                                const totalPresensi = presensi.length;
+                                const dalamArea = presensi.filter(p => p.status_lokasi === 'Dalam Area').length;
+                                const luarArea = presensi.filter(p => p.status_lokasi === 'Luar Area').length;
+                                const persentaseDalam = totalPresensi > 0 ? Math.round((dalamArea / totalPresensi) * 100) : 0;
+                                const persentaseLuar = totalPresensi > 0 ? Math.round((luarArea / totalPresensi) * 100) : 0;
+                                %>
+                                <div>
+                                    <div class="flex justify-between text-sm text-brown-200 mb-1">
+                                        <span>Dalam Area</span>
+                                        <span><%= persentaseDalam %>%</span>
+                                    </div>
+                                    <div class="w-full bg-dark-600 rounded-full h-3">
+                                        <div class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: <%= persentaseDalam %>%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm text-brown-200 mb-1">
+                                        <span>Luar Area</span>
+                                        <span><%= persentaseLuar %>%</span>
+                                    </div>
+                                    <div class="w-full bg-dark-600 rounded-full h-3">
+                                        <div class="bg-red-500 h-3 rounded-full transition-all duration-500" style="width: <%= persentaseLuar %>%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Employee List -->
+                        <div class="bg-dark-800 rounded-xl shadow-2xl p-6 border border-brown-600/30">
+                            <h3 class="text-lg font-bold text-white mb-4 flex items-center">
+                                <i class="fas fa-list text-brown-400 mr-3"></i>
+                                Daftar Karyawan Hari Ini
+                            </h3>
+                            <div class="space-y-3">
+                                <% 
+                                const uniqueEmployees = {};
+                                presensi.forEach(p => {
+                                    if (!uniqueEmployees[p.nama]) {
+                                        uniqueEmployees[p.nama] = {
+                                            nama: p.nama,
+                                            jabatan: p.jabatan,
+                                            status: p.status_lokasi,
+                                            waktu: p.waktu,
+                                            foto: p.foto_checkin
+                                        };
+                                    }
+                                });
+                                Object.values(uniqueEmployees).forEach(function(emp) { %>
+                                    <div class="flex items-center justify-between p-3 bg-dark-700 rounded-lg border border-brown-600/30">
+                                        <div class="flex items-center space-x-3">
+                                            <img src="/uploads/presensi/<%= emp.foto %>" alt="<%= emp.nama %>" 
+                                                 class="w-10 h-10 rounded-full object-cover border-2 border-brown-600/50">
+                                            <div>
+                                                <div class="font-medium text-white"><%= emp.nama %></div>
+                                                <div class="text-sm text-brown-300"><%= emp.jabatan %></div>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <% if (emp.status === 'Dalam Area') { %>
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-900/50 text-green-300 border border-green-600/50">
+                                                    <i class="fas fa-check-circle mr-1"></i>
+                                                    Dalam Area
+                                                </span>
+                                            <% } else { %>
+                                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-900/50 text-red-300 border border-red-600/50">
+                                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                    Luar Area
+                                                </span>
+                                            <% } %>
+                                            <div class="text-xs text-brown-400 mt-1">
+                                                <%= new Date(emp.waktu).toLocaleTimeString('id-ID') %>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% }); %>
+                            </div>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="max-w-3xl max-h-3xl p-4 relative">
+            <img id="modalImage" src="" alt="" class="max-w-full max-h-full rounded-lg shadow-2xl border-2 border-brown-600/50">
+            <button onclick="closeImageModal()" class="absolute top-2 right-2 text-white bg-dark-800/80 hover:bg-dark-700 text-2xl hover:text-brown-300 w-10 h-10 rounded-full flex items-center justify-center transition duration-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Google Maps JavaScript API -->
+    <script async defer 
+        src="https://maps.googleapis.com/maps/api/js?key=<%= GOOGLE_MAPS_API_KEY %>&callback=initAttendanceMap">
+    </script>
+
+    <script>
+        let attendanceMapInstance;
+        let attendanceMapTabInstance;
+        let isMapVisible = false;
+
+        // Tab switching functionality
+        function switchTab(tabName) {
+            // Remove active class from all tabs and content
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding content
+            document.getElementById('tab' + tabName).classList.add('active');
+            document.getElementById('content' + tabName).classList.add('active');
+            
+            // Initialize map when Map tab is clicked
+            if (tabName === 'Map' && !attendanceMapTabInstance) {
+                setTimeout(() => {
+                    initAttendanceMapTab();
+                }, 100);
+            }
+        }
+
+        // Initialize tab event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('tabTable').addEventListener('click', () => switchTab('Table'));
+            document.getElementById('tabMap').addEventListener('click', () => switchTab('Map'));
+            document.getElementById('tabSummary').addEventListener('click', () => switchTab('Summary'));
+        });
+
+        // Attendance data for map
+        const attendanceData = [
+            <% presensi.forEach(function(p, index) { %>
+                {
+                    nama: "<%- (p.nama || '').replace(/"/g, '\\"') %>",
+                    jabatan: "<%- (p.jabatan || '').replace(/"/g, '\\"') %>",
+                    waktu: "<%= p.waktu ? new Date(p.waktu).toLocaleString('id-ID') : '' %>",
+                    lat: <%= p.lat_absen || 0 %>,
+                    lng: <%= p.long_absen || 0 %>,
+                    status: "<%= p.status_lokasi || '' %>",
+                    jarak: <%= p.jarak_meter || 0 %>,
+                    foto: "<%= p.foto_checkin || '' %>"
+                }<%= index < presensi.length - 1 ? ',' : '' %>
+            <% }); %>
+        ];
+
+        function createMapInstance(mapElementId) {
+            // Office location from settings
+            const officeLat = <%= officeSetting ? officeSetting.lat_kantor : -8.8155675 %>;
+            const officeLng = <%= officeSetting ? officeSetting.long_kantor : 115.1253343 %>;
+            const officeRadius = <%= officeSetting ? officeSetting.radius_meter : 100 %>;
+
+            const center = { lat: officeLat, lng: officeLng };
+
+            // Create map
+            const mapInstance = new google.maps.Map(document.getElementById(mapElementId), {
+                zoom: 14,
+                center: center,
+                mapTypeId: 'roadmap'
+            });
+
+            // Add office marker
+            const officeMarker = new google.maps.Marker({
+                position: center,
+                map: mapInstance,
+                title: 'Fleur Atelier d\'artistes - Lokasi Kantor',
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 10,
+                    fillColor: '#3b82f6',
+                    fillOpacity: 1,
+                    strokeColor: 'white',
+                    strokeWeight: 3
+                }
+            });
+
+            // Add office info window
+            const officeInfoWindow = new google.maps.InfoWindow({
+                content: '<div class="text-center"><strong>Fleur Atelier d\'artistes</strong><br><small>Lokasi Kantor</small></div>'
+            });
+
+            officeMarker.addListener('click', function() {
+                officeInfoWindow.open(mapInstance, officeMarker);
+            });
+
+            // Add office radius circle
+            const officeCircle = new google.maps.Circle({
+                strokeColor: '#dc2626',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: '#fca5a5',
+                fillOpacity: 0.2,
+                map: mapInstance,
+                center: center,
+                radius: officeRadius
+            });
+
+            // Add attendance markers
+            attendanceData.forEach(function(attendance) {
+                const isInArea = attendance.status === 'Dalam Area';
+                const markerColor = isInArea ? '#10b981' : '#ef4444';
+                
+                const attendanceMarker = new google.maps.Marker({
+                    position: { lat: attendance.lat, lng: attendance.lng },
+                    map: mapInstance,
+                    title: attendance.nama,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 8,
+                        fillColor: markerColor,
+                        fillOpacity: 1,
+                        strokeColor: 'white',
+                        strokeWeight: 2
+                    }
+                });
+
+                const attendanceInfoWindow = new google.maps.InfoWindow({
+                    content: `
+                        <div class="text-center max-w-xs">
+                            <img src="/uploads/presensi/${attendance.foto}" alt="${attendance.nama}" 
+                                 class="w-16 h-16 rounded-lg object-cover mx-auto mb-2">
+                            <strong>${attendance.nama}</strong><br>
+                            <small>${attendance.jabatan}</small><br>
+                            <small>${attendance.waktu}</small><br>
+                            <span class="inline-block px-2 py-1 text-xs rounded-full ${isInArea ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${attendance.status}
+                            </span><br>
+                            <small>Jarak: ${attendance.jarak}m</small>
+                        </div>
+                    `
+                });
+
+                attendanceMarker.addListener('click', function() {
+                    attendanceInfoWindow.open(mapInstance, attendanceMarker);
+                });
+            });
+
+            // Fit map to show all markers
+            if (attendanceData.length > 0) {
+                const bounds = new google.maps.LatLngBounds();
+                bounds.extend(center);
+                attendanceData.forEach(function(attendance) {
+                    bounds.extend({ lat: attendance.lat, lng: attendance.lng });
+                });
+                mapInstance.fitBounds(bounds);
+            }
+
+            return mapInstance;
+        }
+
+        function initAttendanceMap() {
+            if (attendanceMapInstance) {
+                return;
+            }
+            attendanceMapInstance = createMapInstance('attendanceMap');
+        }
+
+        function initAttendanceMapTab() {
+            if (attendanceMapTabInstance) {
+                return;
+            }
+            attendanceMapTabInstance = createMapInstance('attendanceMapTab');
+        }
+
+        function toggleAttendanceMap() {
+            const mapDiv = document.getElementById('attendanceMap');
+            const legendDiv = document.getElementById('mapLegend');
+            const toggleBtn = document.getElementById('toggleMap');
+
+            if (isMapVisible) {
+                mapDiv.classList.add('hidden');
+                legendDiv.classList.add('hidden');
+                toggleBtn.innerHTML = '<i class="fas fa-map mr-2"></i>Tampilkan Peta';
+                isMapVisible = false;
+            } else {
+                mapDiv.classList.remove('hidden');
+                legendDiv.classList.remove('hidden');
+                toggleBtn.innerHTML = '<i class="fas fa-eye-slash mr-2"></i>Sembunyikan Peta';
+                isMapVisible = true;
+                
+                // Initialize map if not already done
+                setTimeout(() => {
+                    initAttendanceMap();
+                    if (attendanceMapInstance) {
+                        google.maps.event.trigger(attendanceMapInstance, 'resize');
+                    }
+                }, 100);
+            }
+        }
+
+        function showImage(src) {
+            document.getElementById('modalImage').src = src;
+            document.getElementById('imageModal').classList.remove('hidden');
+            document.getElementById('imageModal').classList.add('flex');
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').classList.add('hidden');
+            document.getElementById('imageModal').classList.remove('flex');
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleMapBtn = document.getElementById('toggleMap');
+            if (toggleMapBtn) {
+                toggleMapBtn.addEventListener('click', toggleAttendanceMap);
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('imageModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeImageModal();
+            }
+        });
+
+        // Handle Google Maps authentication failure
+        function gm_authFailure() {
+            console.error('Google Maps authentication failed');
+            const mapDiv = document.getElementById('attendanceMap');
+            if (mapDiv) {
+                mapDiv.innerHTML = '<div class="flex items-center justify-center h-full text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>Google Maps authentication failed</div>';
+            }
+        }
+
+        // Real-time Clock - Consistent format (date and time only)
+        function updateClock() {
+            try {
+                const now = new Date();
+                const options = {
+                    day: '2-digit',
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    timeZone: 'Asia/Jakarta'
+                };
+                
+                const timeString = now.toLocaleString('id-ID', options);
+                const clockElement = document.getElementById('currentTime');
+                
+                if (clockElement) {
+                    clockElement.textContent = timeString;
+                }
+            } catch (error) {
+                console.error('Clock update error:', error);
+                // Fallback to simple time format
+                const clockElement = document.getElementById('currentTime');
+                
+                if (clockElement) {
+                    const now = new Date();
+                    const day = String(now.getDate()).padStart(2, '0');
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    const year = now.getFullYear();
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    const seconds = String(now.getSeconds()).padStart(2, '0');
+                    clockElement.textContent = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+                }
+            }
+        }
+
+        // Update clock immediately and then every second
+        if (document.getElementById('currentTime')) {
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+    </script>
+</body>
+</html>
