@@ -93,6 +93,27 @@ async function getConnection() {
 }
 
 // ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Safe JSON parse untuk work_days
+ * Handle format lama (string comma-separated) dan format baru (JSON array)
+ */
+function parseWorkDays(workDaysString) {
+  if (!workDaysString) return [];
+  
+  try {
+    // Try parse as JSON first
+    return JSON.parse(workDaysString);
+  } catch (e) {
+    // If failed, assume it's comma-separated string (old format)
+    // Convert "monday,tuesday,wednesday" to ["monday","tuesday","wednesday"]
+    return workDaysString.split(',').map(day => day.trim()).filter(day => day);
+  }
+}
+
+// ============================================
 // FILE UPLOAD CONFIGURATION (MULTER)
 // ============================================
 
@@ -502,7 +523,7 @@ router.post('/auth/login', async (req, res) => {
           clock_in_end: schedule.clock_in_end,
           clock_out_start: schedule.clock_out_start,
           clock_out_end: schedule.clock_out_end,
-          work_days: schedule.work_days ? JSON.parse(schedule.work_days) : [],
+          work_days: parseWorkDays(schedule.work_days),
           is_active: schedule.is_active === 1
         };
       }
@@ -961,7 +982,7 @@ router.get('/auth/profile/:id', authenticateToken, async (req, res) => {
           clock_in_end: employee.clock_in_end,
           clock_out_start: employee.clock_out_start,
           clock_out_end: employee.clock_out_end,
-          work_days: JSON.parse(employee.work_days || '[]'),
+          work_days: parseWorkDays(employee.work_days),
           is_active: true
         } : null
       }
@@ -1785,7 +1806,7 @@ router.get('/schedule/today/:karyawan_id', authenticateToken, async (req, res) =
     }
 
     const schedule = rows[0];
-    const workDays = JSON.parse(schedule.work_days || '[]');
+    const workDays = parseWorkDays(schedule.work_days);
     const hasWorkToday = workDays.includes(today);
 
     res.json({
@@ -2771,7 +2792,7 @@ router.get('/attendance/status/:karyawan_id', authenticateToken, async (req, res
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
       const currentTime = new Date().toTimeString().split(' ')[0];
-      const workDays = JSON.parse(schedule.work_days || '[]');
+      const workDays = parseWorkDays(schedule.work_days);
       const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
       
       // Check if today is a work day (case-insensitive)
@@ -2891,7 +2912,7 @@ router.get('/attendance/today', authenticateToken, async (req, res) => {
         clock_in_end: schedule.clock_in_end,
         clock_out_start: schedule.clock_out_start,
         clock_out_end: schedule.clock_out_end,
-        work_days: JSON.parse(schedule.work_days || '[]')
+        work_days: parseWorkDays(schedule.work_days)
       };
     }
 
