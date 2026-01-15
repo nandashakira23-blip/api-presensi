@@ -19,7 +19,8 @@
     "db:fresh": "node scripts/fresh-install.js",
     "db:backup": "node scripts/backup-database.js",
     "seed": "node scripts/seed.js run",
-    "seed:clear": "node scripts/seed.js clear"
+    "seed:clear": "node scripts/seed.js clear",
+    "clean-photos": "node scripts/clean-photos.js"
   },
   "dependencies": {
     "@tensorflow-models/face-detection": "^1.0.2",

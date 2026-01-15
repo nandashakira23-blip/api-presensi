@@ -753,9 +753,9 @@ router.post('/auth/activate', upload.single('face_photo'), async (req, res) => {
             nama: karyawan.nama
           },
           tokens: {
-            accessToken,
-            refreshToken,
-            expiresIn: 3600
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            expires_in: 3600
           },
           face_enrollment: {
             faces_detected: faces.length,

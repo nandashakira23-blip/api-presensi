@@ -1,0 +1,66 @@
+==============================================
+PERINTAH UNTUK DIJALANKAN DI SERVER VPS
+==============================================
+
+1. SSH ke server:
+   ssh root@76.13.19.34
+
+2. Masuk ke direktori project:
+   cd /var/www/api-presensi
+
+3. Pull update dari GitHub:
+   git pull origin main
+
+4. Install dependencies (jika ada update):
+   npm install
+
+5. (OPSIONAL) Bersihkan semua foto lama:
+   npm run clean-photos
+
+6. Fix kolom PIN di database:
+   node scripts/fix-pin-column.js
+
+7. Jalankan migration untuk tambah kolom email, phone, profile_picture:
+   npm run migrate
+
+8. Restart PM2:
+   pm2 restart presensi-api
+
+9. Cek log untuk memastikan tidak ada error:
+   pm2 logs presensi-api --lines 50
+
+==============================================
+VERIFIKASI
+==============================================
+
+1. Cek struktur tabel karyawan:
+   mysql -u shakira -p presensi_shakira -e "DESCRIBE karyawan;"
+   
+   Pastikan kolom 'pin' adalah varchar(255)
+
+2. Test aktivasi dari Android app:
+   - Buka app
+   - Masukkan NIK yang belum diaktivasi
+   - Buat PIN 4 digit
+   - Upload foto wajah
+   - Seharusnya berhasil dan redirect ke login
+
+3. Test login:
+   - Login dengan NIK dan PIN yang baru dibuat
+   - Seharusnya berhasil masuk
+
+==============================================
+TROUBLESHOOTING
+==============================================
+
+Jika masih error "Data too long for column 'pin'":
+
+mysql -u shakira -p
+USE presensi_shakira;
+ALTER TABLE karyawan MODIFY COLUMN pin VARCHAR(255) DEFAULT NULL;
+EXIT;
+
+Lalu restart PM2:
+pm2 restart presensi-api
+
+==============================================
