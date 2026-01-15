@@ -32,6 +32,12 @@
                     <span>Jadwal Kerja</span>
                 </a>
             </li>
+            <li>
+                <a href="/admin/maps" class="flex items-center space-x-3 text-brown-200 p-3 rounded-xl <%= currentPage === 'maps' ? 'bg-brown-600 border-l-4 border-brown-400 font-semibold text-white shadow-lg' : 'hover:bg-dark-600 hover:text-white' %> transition duration-200 group">
+                    <i class="fas fa-map-marked-alt <%= currentPage === 'maps' ? 'text-brown-200' : 'text-brown-400 group-hover:text-brown-300' %>"></i>
+                    <span>Maps Testing</span>
+                </a>
+            </li>
         </ul>
     </div>
 </div>
@@ -84,6 +90,12 @@
                     <a href="/admin/work-schedule" class="flex items-center space-x-3 text-brown-200 p-4 rounded-xl <%= currentPage === 'work-schedule' ? 'bg-brown-600 border-l-4 border-brown-400 font-semibold text-white shadow-lg' : 'hover:bg-dark-600 hover:text-white' %> transition duration-200">
                         <i class="fas fa-clock <%= currentPage === 'work-schedule' ? 'text-brown-200' : 'text-brown-400' %>"></i>
                         <span>Jadwal Kerja</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/admin/maps" class="flex items-center space-x-3 text-brown-200 p-4 rounded-xl <%= currentPage === 'maps' ? 'bg-brown-600 border-l-4 border-brown-400 font-semibold text-white shadow-lg' : 'hover:bg-dark-600 hover:text-white' %> transition duration-200">
+                        <i class="fas fa-map-marked-alt <%= currentPage === 'maps' ? 'text-brown-200' : 'text-brown-400' %>"></i>
+                        <span>Maps Testing</span>
                     </a>
                 </li>
             </ul>

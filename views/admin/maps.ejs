@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark': {
+                            600: '#2d2d2d',
+                            800: '#1a1a1a',
+                            900: '#0f0f0f',
+                        },
+                        'brown': {
+                            200: '#d4b896',
+                            300: '#c9a876',
+                            400: '#b8935a',
+                            500: '#a67c52',
+                            600: '#8b6f47',
+                            700: '#6b5639',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 8px;
+        }
+        .info-card {
+            background: rgba(139, 111, 71, 0.1);
+            border: 1px solid rgba(139, 111, 71, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .info-card h6 {
+            color: #d4b896;
+            font-size: 0.875rem;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .info-card p {
+            font-size: 1rem;
+            font-weight: 500;
+            margin: 0;
+            color: #ffffff;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .status-success {
+            background: #10b981;
+            color: #ffffff;
+        }
+        .status-danger {
+            background: #ef4444;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen">
+    <%- include('../partials/navbar') %>
+    
+    <div class="lg:hidden pt-16 sm:pt-20"></div>
+    
+    <!-- Sidebar & Content -->
+    <div class="flex flex-col lg:flex-row">
+        <%- include('../partials/sidebar', { currentPage: 'maps' }) %>
+        
+        <!-- Main Content with sidebar spacing -->
+        <div class="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 min-h-screen pt-20 lg:pt-24">
+            <div class="mb-6 sm:mb-8">
+                <h2 class="text-2xl sm:text-3xl font-bold text-white mb-2">
+                    <i class="fas fa-map text-brown-400"></i> Google Maps API Testing
+                </h2>
+                <p class="text-brown-200">Test dan validasi integrasi Google Maps API</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Map Display -->
+                <div class="lg:col-span-2">
+                    <div class="bg-dark-800 border border-brown-600/30 shadow-2xl rounded-xl overflow-hidden">
+                        <div class="bg-brown-600 text-white p-4">
+                            <h5 class="font-semibold text-lg"><i class="fas fa-map-marked-alt mr-2"></i> Interactive Map</h5>
+                        </div>
+                        <div class="p-4">
+                            <div id="map"></div>
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                <button class="px-4 py-2 bg-brown-600 hover:bg-brown-700 text-white rounded-lg transition duration-200 text-sm font-medium" onclick="getCurrentLocation()">
+                                    <i class="fas fa-crosshair mr-1"></i> Current Location
+                                </button>
+                                <button class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition duration-200 text-sm font-medium" onclick="addMarker()">
+                                    <i class="fas fa-map-pin mr-1"></i> Add Marker
+                                </button>
+                                <button class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition duration-200 text-sm font-medium" onclick="clearMarkers()">
+                                    <i class="fas fa-trash mr-1"></i> Clear
+                                </button>
+                                <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200 text-sm font-medium" onclick="showOfficeLocation()">
+                                    <i class="fas fa-building mr-1"></i> Office
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="lg:col-span-1">
+                    <div class="bg-dark-800 border border-brown-600/30 shadow-2xl rounded-xl overflow-hidden mb-6">
+                        <div class="bg-green-600 text-white p-4">
+                            <h5 class="font-semibold text-lg"><i class="fas fa-info-circle mr-2"></i> Information</h5>
+                        </div>
+                        <div class="p-4">
+                            <!-- API Status -->
+                            <div class="info-card">
+                                <h6>API Status</h6>
+                                <p id="apiStatus">
+                                    <span class="status-badge status-danger">Checking...</span>
+                                </p>
+                            </div>
+
+                            <!-- Current Position -->
+                            <div class="info-card">
+                                <h6>Map Center</h6>
+                                <p id="currentLat" class="text-sm">Lat: -</p>
+                                <p id="currentLng" class="text-sm">Lng: -</p>
+                            </div>
+
+                            <!-- Office Location -->
+                            <div class="info-card">
+                                <h6>Office Location</h6>
+                                <p class="text-sm">Lat: <%= officeSetting.lat_kantor %></p>
+                                <p class="text-sm">Lng: <%= officeSetting.long_kantor %></p>
+                                <p class="text-sm">Radius: <%= officeSetting.radius_meter %>m</p>
+                            </div>
+
+                            <!-- Click Position -->
+                            <div class="info-card">
+                                <h6>Last Click</h6>
+                                <p id="clickLat" class="text-sm">Lat: -</p>
+                                <p id="clickLng" class="text-sm">Lng: -</p>
+                            </div>
+
+                            <!-- Distance Calculator -->
+                            <div class="info-card">
+                                <h6>Distance from Office</h6>
+                                <p id="distance" class="text-sm">- meters</p>
+                            </div>
+
+                            <!-- Markers Count -->
+                            <div class="info-card">
+                                <h6>Markers</h6>
+                                <p id="markerCount">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Test Actions -->
+                    <div class="bg-dark-800 border border-brown-600/30 shadow-2xl rounded-xl overflow-hidden">
+                        <div class="bg-yellow-600 text-white p-4">
+                            <h5 class="font-semibold text-lg"><i class="fas fa-tools mr-2"></i> Test Actions</h5>
+                        </div>
+                        <div class="p-4 space-y-2">
+                            <button class="w-full px-4 py-2 bg-brown-600/50 hover:bg-brown-600 text-white rounded-lg transition duration-200 text-sm font-medium" onclick="testGeocoding()">
+                                <i class="fas fa-search mr-2"></i> Test Geocoding
+                            </button>
+                            <button class="w-full px-4 py-2 bg-brown-600/50 hover:bg-brown-600 text-white rounded-lg transition duration-200 text-sm font-medium" onclick="testReverseGeocoding()">
+                                <i class="fas fa-arrow-left-right mr-2"></i> Reverse Geocoding
+                            </button>
+                            <button class="w-full px-4 py-2 bg-brown-600/50 hover:bg-brown-600 text-white rounded-lg transition duration-200 text-sm font-medium" onclick="testDistanceMatrix()">
+                                <i class="fas fa-ruler mr-2"></i> Distance Matrix
+                            </button>
+                            <button class="w-full px-4 py-2 bg-brown-600/50 hover:bg-brown-600 text-white rounded-lg transition duration-200 text-sm font-medium" onclick="testPlacesAPI()">
+                                <i class="fas fa-store mr-2"></i> Places API
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console Log -->
+            <div class="mt-6">
+                <div class="bg-dark-800 border border-brown-600/30 shadow-2xl rounded-xl overflow-hidden">
+                    <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
+                        <h5 class="font-semibold text-lg"><i class="fas fa-terminal mr-2"></i> Console Log</h5>
+                        <button class="px-3 py-1 bg-brown-600 hover:bg-brown-700 text-white rounded text-sm font-medium" onclick="clearConsole()">Clear</button>
+                    </div>
+                    <div class="bg-black p-4" style="max-height: 300px; overflow-y: auto;">
+                        <pre id="console" style="margin: 0; color: #00ff00; font-family: monospace; font-size: 0.875rem;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let markers = [];
+        let officeMarker;
+        let officeCircle;
+        const officeLat = <%= officeSetting.lat_kantor %>;
+        const officeLng = <%= officeSetting.long_kantor %>;
+        const officeRadius = <%= officeSetting.radius_meter %>;
+
+        // Console logging
+        function log(message, type = 'info') {
+            const console = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff4444' : type === 'success' ? '#00ff00' : '#00aaff';
+            console.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span>\n`;
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function clearConsole() {
+            document.getElementById('console').innerHTML = '';
+        }
+
+        // Initialize map
+        function initMap() {
+            try {
+                map = new google.maps.Map(document.getElementById('map'), {
+                    center: { lat: officeLat, lng: officeLng },
+                    zoom: 15,
+                    mapTypeControl: true,
+                    streetViewControl: true,
+                    fullscreenControl: true
+                });
+
+                // Update API status
+                document.getElementById('apiStatus').innerHTML = '<span class="status-badge status-success">Connected</span>';
+                log('Google Maps API loaded successfully', 'success');
+
+                // Add click listener
+                map.addListener('click', (e) => {
+                    const lat = e.latLng.lat();
+                    const lng = e.latLng.lng();
+                    document.getElementById('clickLat').textContent = `Lat: ${lat.toFixed(6)}`;
+                    document.getElementById('clickLng').textContent = `Lng: ${lng.toFixed(6)}`;
+                    
+                    // Calculate distance from office
+                    const distance = calculateDistance(officeLat, officeLng, lat, lng);
+                    document.getElementById('distance').textContent = `${distance.toFixed(2)} meters`;
+                    
+                    log(`Clicked at: ${lat.toFixed(6)}, ${lng.toFixed(6)} - Distance: ${distance.toFixed(2)}m`);
+                });
+
+                // Update center position on map move
+                map.addListener('center_changed', () => {
+                    const center = map.getCenter();
+                    document.getElementById('currentLat').textContent = `Lat: ${center.lat().toFixed(6)}`;
+                    document.getElementById('currentLng').textContent = `Lng: ${center.lng().toFixed(6)}`;
+                });
+
+                // Show office location by default
+                showOfficeLocation();
+
+            } catch (error) {
+                document.getElementById('apiStatus').innerHTML = '<span class="status-badge status-danger">Error</span>';
+                log(`Error initializing map: ${error.message}`, 'error');
+            }
+        }
+
+        // Calculate distance between two points (Haversine formula)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c;
+        }
+
+        // Get current location
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                log('Requesting current location...');
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const pos = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        map.setCenter(pos);
+                        map.setZoom(16);
+                        
+                        // Add marker
+                        const marker = new google.maps.Marker({
+                            position: pos,
+                            map: map,
+                            title: 'Your Location',
+                            icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                        });
+                        markers.push(marker);
+                        updateMarkerCount();
+                        
+                        log(`Current location: ${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`, 'success');
+                    },
+                    (error) => {
+                        log(`Geolocation error: ${error.message}`, 'error');
+                    }
+                );
+            } else {
+                log('Geolocation not supported by browser', 'error');
+            }
+        }
+
+        // Add marker at map center
+        function addMarker() {
+            const center = map.getCenter();
+            const marker = new google.maps.Marker({
+                position: center,
+                map: map,
+                title: `Marker ${markers.length + 1}`
+            });
+            markers.push(marker);
+            updateMarkerCount();
+            log(`Marker added at: ${center.lat().toFixed(6)}, ${center.lng().toFixed(6)}`, 'success');
+        }
+
+        // Clear all markers
+        function clearMarkers() {
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+            updateMarkerCount();
+            log('All markers cleared', 'success');
+        }
+
+        // Update marker count
+        function updateMarkerCount() {
+            document.getElementById('markerCount').textContent = markers.length;
+        }
+
+        // Show office location
+        function showOfficeLocation() {
+            // Remove existing office marker and circle
+            if (officeMarker) officeMarker.setMap(null);
+            if (officeCircle) officeCircle.setMap(null);
+
+            // Add office marker
+            officeMarker = new google.maps.Marker({
+                position: { lat: officeLat, lng: officeLng },
+                map: map,
+                title: 'Office Location',
+                icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+            });
+
+            // Add radius circle
+            officeCircle = new google.maps.Circle({
+                map: map,
+                center: { lat: officeLat, lng: officeLng },
+                radius: officeRadius,
+                fillColor: '#FF0000',
+                fillOpacity: 0.15,
+                strokeColor: '#FF0000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2
+            });
+
+            map.setCenter({ lat: officeLat, lng: officeLng });
+            map.setZoom(16);
+            
+            log(`Office location shown: ${officeLat}, ${officeLng} (${officeRadius}m radius)`, 'success');
+        }
+
+        // Test Geocoding
+        function testGeocoding() {
+            const address = prompt('Enter address to geocode:', 'Denpasar, Bali');
+            if (!address) return;
+
+            log(`Testing geocoding for: ${address}`);
+            const geocoder = new google.maps.Geocoder();
+            
+            geocoder.geocode({ address: address }, (results, status) => {
+                if (status === 'OK') {
+                    const location = results[0].geometry.location;
+                    map.setCenter(location);
+                    
+                    const marker = new google.maps.Marker({
+                        map: map,
+                        position: location,
+                        title: results[0].formatted_address
+                    });
+                    markers.push(marker);
+                    updateMarkerCount();
+                    
+                    log(`Geocoding success: ${location.lat()}, ${location.lng()}`, 'success');
+                    log(`Address: ${results[0].formatted_address}`, 'success');
+                } else {
+                    log(`Geocoding failed: ${status}`, 'error');
+                }
+            });
+        }
+
+        // Test Reverse Geocoding
+        function testReverseGeocoding() {
+            const center = map.getCenter();
+            log(`Testing reverse geocoding for: ${center.lat()}, ${center.lng()}`);
+            
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ location: center }, (results, status) => {
+                if (status === 'OK') {
+                    if (results[0]) {
+                        log(`Reverse geocoding success:`, 'success');
+                        log(`Address: ${results[0].formatted_address}`, 'success');
+                    } else {
+                        log('No results found', 'error');
+                    }
+                } else {
+                    log(`Reverse geocoding failed: ${status}`, 'error');
+                }
+            });
+        }
+
+        // Test Distance Matrix
+        function testDistanceMatrix() {
+            const center = map.getCenter();
+            const service = new google.maps.DistanceMatrixService();
+            
+            log('Testing Distance Matrix API...');
+            service.getDistanceMatrix({
+                origins: [{ lat: officeLat, lng: officeLng }],
+                destinations: [center],
+                travelMode: 'DRIVING',
+            }, (response, status) => {
+                if (status === 'OK') {
+                    const result = response.rows[0].elements[0];
+                    log(`Distance Matrix success:`, 'success');
+                    log(`Distance: ${result.distance.text}`, 'success');
+                    log(`Duration: ${result.duration.text}`, 'success');
+                } else {
+                    log(`Distance Matrix failed: ${status}`, 'error');
+                }
+            });
+        }
+
+        // Test Places API
+        function testPlacesAPI() {
+            const center = map.getCenter();
+            const service = new google.maps.places.PlacesService(map);
+            
+            log('Testing Places API (nearby search)...');
+            service.nearbySearch({
+                location: center,
+                radius: 500,
+                type: ['restaurant']
+            }, (results, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                    log(`Places API success: Found ${results.length} restaurants`, 'success');
+                    results.slice(0, 5).forEach((place, i) => {
+                        log(`${i + 1}. ${place.name} - ${place.vicinity}`, 'success');
+                    });
+                } else {
+                    log(`Places API failed: ${status}`, 'error');
+                }
+            });
+        }
+
+        // Handle API load error
+        window.gm_authFailure = function() {
+            document.getElementById('apiStatus').innerHTML = '<span class="status-badge status-danger">Auth Failed</span>';
+            log('Google Maps API authentication failed. Check your API key.', 'error');
+        };
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=<%= GOOGLE_MAPS_API_KEY %>&libraries=places&callback=initMap" async defer></script>
+    
+    <script>
+        // Real-time clock
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('id-ID', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            const timeElement = document.getElementById('currentTime');
+            if (timeElement) {
+                timeElement.textContent = timeString;
+            }
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>

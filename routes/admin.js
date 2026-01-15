@@ -829,6 +829,24 @@ router.post('/jabatan/update', requireAuth, (req, res) => {
     });
 });
 
+// Maps Testing Page
+router.get('/maps', requireAuth, (req, res) => {
+    // Get office settings for initial map center
+    const settingQuery = 'SELECT lat_kantor, long_kantor, radius_meter FROM pengaturan LIMIT 1';
+    
+    db.query(settingQuery, (err, results) => {
+        const officeSetting = results && results.length > 0 
+            ? results[0] 
+            : { lat_kantor: -8.8155675, long_kantor: 115.1253343, radius_meter: 100 };
+
+        res.render('admin/maps', { 
+            title: 'Google Maps Testing - Fleur Atelier',
+            admin: req.session.admin,
+            officeSetting: officeSetting
+        });
+    });
+});
+
 // Delete jabatan (API)
 router.post('/jabatan/delete', requireAuth, (req, res) => {
     const { id } = req.body;
