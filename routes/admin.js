@@ -229,9 +229,13 @@ router.get('/api/attendance-chart-data', requireAuth, (req, res) => {
 // Master Karyawan - List
 router.get('/karyawan', requireAuth, (req, res) => {
     const query = `
-        SELECT k.id, k.nik, k.nama, k.id_jabatan, j.nama_jabatan as jabatan, k.is_activated, k.foto_referensi, k.created_at 
+        SELECT k.id, k.nik, k.nama, k.id_jabatan, k.work_schedule_id, 
+               j.nama_jabatan as jabatan, 
+               jk.nama as jadwal_kerja,
+               k.is_activated, k.foto_referensi, k.created_at 
         FROM karyawan k 
         LEFT JOIN jabatan j ON k.id_jabatan = j.id 
+        LEFT JOIN jadwal_kerja jk ON k.work_schedule_id = jk.id
         ORDER BY k.created_at DESC
     `;
     
@@ -261,6 +265,8 @@ router.get('/karyawan', requireAuth, (req, res) => {
 router.get('/karyawan/add', requireAuth, (req, res) => {
     // Get jabatan list
     const jabatanQuery = 'SELECT id, nama_jabatan, deskripsi FROM jabatan WHERE is_active = TRUE ORDER BY nama_jabatan';
+    // Get work schedules
+    const scheduleQuery = 'SELECT id, nama, jam_masuk, jam_keluar FROM jadwal_kerja WHERE is_active = TRUE ORDER BY jam_masuk';
     
     db.query(jabatanQuery, (err, jabatanResults) => {
         if (err) {
@@ -269,15 +275,30 @@ router.get('/karyawan/add', requireAuth, (req, res) => {
                 title: 'Tambah Karyawan - Fleur Atelier',
                 admin: req.session.admin,
                 jabatan: [],
+                schedules: [],
                 error: req.flash('error')
             });
         }
 
-        res.render('admin/karyawan/add', { 
-            title: 'Tambah Karyawan - Fleur Atelier',
-            admin: req.session.admin,
-            jabatan: jabatanResults,
-            error: req.flash('error')
+        db.query(scheduleQuery, (err2, scheduleResults) => {
+            if (err2) {
+                console.error('Schedule query error:', err2);
+                return res.render('admin/karyawan/add', { 
+                    title: 'Tambah Karyawan - Fleur Atelier',
+                    admin: req.session.admin,
+                    jabatan: jabatanResults,
+                    schedules: [],
+                    error: req.flash('error')
+                });
+            }
+
+            res.render('admin/karyawan/add', { 
+                title: 'Tambah Karyawan - Fleur Atelier',
+                admin: req.session.admin,
+                jabatan: jabatanResults,
+                schedules: scheduleResults,
+                error: req.flash('error')
+            });
         });
     });
 });
@@ -296,17 +317,17 @@ router.post('/karyawan/add', requireAuth, (req, res) => {
         }
         
         // No error, proceed with saving
-        const { nik, nama, id_jabatan } = req.body;
+        const { nik, nama, id_jabatan, work_schedule_id } = req.body;
         
-        if (!nik || !nama || !id_jabatan) {
+        if (!nik || !nama || !id_jabatan || !work_schedule_id) {
             req.flash('error', 'Semua field harus diisi');
             return res.redirect('/admin/karyawan/add');
         }
 
-        const fotoPath = req.file ? req.file.filename : null;
-        const query = 'INSERT INTO karyawan (nik, nama, id_jabatan, foto_referensi) VALUES (?, ?, ?, ?)';
+        const fotoPath = req.file ? `uploads/karyawan/${req.file.filename}` : null;
+        const query = 'INSERT INTO karyawan (nik, nama, id_jabatan, work_schedule_id, foto_referensi) VALUES (?, ?, ?, ?, ?)';
         
-        db.query(query, [nik, nama, id_jabatan, fotoPath], async (err, results) => {
+        db.query(query, [nik, nama, id_jabatan, work_schedule_id, fotoPath], async (err, results) => {
             if (err) {
                 console.error('Database error:', err);
                 if (err.code === 'ER_DUP_ENTRY') {
@@ -384,15 +405,22 @@ router.post('/karyawan/delete/:id', requireAuth, (req, res) => {
 
 // Master Karyawan - Update (API)
 router.post('/karyawan/update', requireAuth, (req, res) => {
-    const { id, nik, nama, id_jabatan } = req.body;
+    const { id, nik, nama, id_jabatan, work_schedule_id } = req.body;
     
     if (!id || !nik || !nama || !id_jabatan) {
         return res.json({ success: false, message: 'Semua field harus diisi' });
     }
 
-    const query = 'UPDATE karyawan SET nik = ?, nama = ?, id_jabatan = ? WHERE id = ?';
+    let query, params;
+    if (work_schedule_id) {
+        query = 'UPDATE karyawan SET nik = ?, nama = ?, id_jabatan = ?, work_schedule_id = ? WHERE id = ?';
+        params = [nik.trim(), nama.trim(), id_jabatan, work_schedule_id, id];
+    } else {
+        query = 'UPDATE karyawan SET nik = ?, nama = ?, id_jabatan = ? WHERE id = ?';
+        params = [nik.trim(), nama.trim(), id_jabatan, id];
+    }
     
-    db.query(query, [nik.trim(), nama.trim(), id_jabatan, id], (err, results) => {
+    db.query(query, params, (err, results) => {
         if (err) {
             if (err.code === 'ER_DUP_ENTRY') {
                 return res.json({ success: false, message: 'NIK sudah terdaftar oleh karyawan lain' });
@@ -438,11 +466,21 @@ router.post('/karyawan/reset', requireAuth, (req, res) => {
 
 // Laporan Absensi
 router.get('/laporan', requireAuth, (req, res) => {
-    const { tanggal } = req.query;
+    const { tanggal, filterType, startDate, endDate, month, year } = req.query;
     let whereClause = '';
     let queryParams = [];
     
-    if (tanggal) {
+    // Build where clause based on filter type
+    if (filterType === 'range' && startDate && endDate) {
+        whereClause = 'WHERE DATE(p.waktu) BETWEEN ? AND ?';
+        queryParams.push(startDate, endDate);
+    } else if (filterType === 'month' && month && year) {
+        whereClause = 'WHERE MONTH(p.waktu) = ? AND YEAR(p.waktu) = ?';
+        queryParams.push(month, year);
+    } else if (filterType === 'year' && year) {
+        whereClause = 'WHERE YEAR(p.waktu) = ?';
+        queryParams.push(year);
+    } else if (tanggal) {
         whereClause = 'WHERE DATE(p.waktu) = ?';
         queryParams.push(tanggal);
     } else {
@@ -452,6 +490,9 @@ router.get('/laporan', requireAuth, (req, res) => {
     const query = `
         SELECT 
             p.id,
+            p.id_karyawan,
+            p.attendance_type,
+            k.nik,
             k.nama,
             j.nama_jabatan as jabatan,
             p.waktu,
@@ -459,7 +500,9 @@ router.get('/laporan', requireAuth, (req, res) => {
             p.long_absen,
             p.foto_checkin,
             p.status_lokasi,
-            p.jarak_meter
+            p.jarak_meter,
+            p.is_late,
+            p.is_early
         FROM presensi p
         JOIN karyawan k ON p.id_karyawan = k.id
         LEFT JOIN jabatan j ON k.id_jabatan = j.id
@@ -477,8 +520,9 @@ router.get('/laporan', requireAuth, (req, res) => {
                 title: 'Laporan Absensi - Fleur Atelier',
                 admin: req.session.admin,
                 presensi: [],
-                tanggal: tanggal || new Date().toISOString().split('T')[0],
-                officeSetting: { lat_kantor: -8.8155675, long_kantor: 115.1253343, radius_meter: 100 }
+                filter: { tanggal: tanggal || new Date().toISOString().split('T')[0], filterType, startDate, endDate, month, year },
+                officeSetting: { lat_kantor: -8.8155675, long_kantor: 115.1253343, radius_meter: 100 },
+                GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || ''
             });
         }
 
@@ -491,11 +535,115 @@ router.get('/laporan', requireAuth, (req, res) => {
                 title: 'Laporan Absensi - Fleur Atelier',
                 admin: req.session.admin,
                 presensi: presensiResults,
-                tanggal: tanggal || new Date().toISOString().split('T')[0],
-                officeSetting: officeSetting
+                filter: { tanggal: tanggal || new Date().toISOString().split('T')[0], filterType, startDate, endDate, month, year },
+                officeSetting: officeSetting,
+                GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || ''
             });
         });
     });
+});
+
+// Export Laporan ke Excel
+router.get('/laporan/export', requireAuth, async (req, res) => {
+    const { tanggal, filterType, startDate, endDate, month, year } = req.query;
+    let whereClause = '';
+    let queryParams = [];
+    let filterInfo = {};
+    
+    // Build where clause based on filter type
+    if (filterType === 'range' && startDate && endDate) {
+        whereClause = 'WHERE DATE(p.waktu) BETWEEN ? AND ?';
+        queryParams.push(startDate, endDate);
+        filterInfo = { type: 'range', startDate, endDate };
+    } else if (filterType === 'month' && month && year) {
+        whereClause = 'WHERE MONTH(p.waktu) = ? AND YEAR(p.waktu) = ?';
+        queryParams.push(month, year);
+        filterInfo = { type: 'month', month, year };
+    } else if (filterType === 'year' && year) {
+        whereClause = 'WHERE YEAR(p.waktu) = ?';
+        queryParams.push(year);
+        filterInfo = { type: 'year', year };
+    } else if (tanggal) {
+        whereClause = 'WHERE DATE(p.waktu) = ?';
+        queryParams.push(tanggal);
+        filterInfo = { type: 'date', startDate: tanggal };
+    } else {
+        const today = new Date().toISOString().split('T')[0];
+        whereClause = 'WHERE DATE(p.waktu) = ?';
+        queryParams.push(today);
+        filterInfo = { type: 'date', startDate: today };
+    }
+    
+    const query = `
+        SELECT 
+            p.id,
+            p.id_karyawan,
+            p.attendance_type,
+            k.nik,
+            k.nama,
+            j.nama_jabatan as jabatan,
+            p.waktu,
+            p.lat_absen,
+            p.long_absen,
+            p.foto_checkin,
+            p.status_lokasi,
+            p.jarak_meter,
+            p.is_late,
+            p.is_early
+        FROM presensi p
+        JOIN karyawan k ON p.id_karyawan = k.id
+        LEFT JOIN jabatan j ON k.id_jabatan = j.id
+        ${whereClause}
+        ORDER BY k.nama, p.waktu
+    `;
+    
+    const settingQuery = 'SELECT lat_kantor, long_kantor, radius_meter FROM pengaturan LIMIT 1';
+    
+    try {
+        db.query(query, queryParams, async (err, presensiResults) => {
+            if (err) {
+                console.error('Export error:', err);
+                req.flash('error', 'Gagal mengekspor data');
+                return res.redirect('/admin/laporan');
+            }
+
+            db.query(settingQuery, async (settingErr, settingResults) => {
+                const officeSetting = settingResults && settingResults.length > 0 
+                    ? settingResults[0] 
+                    : { lat_kantor: -8.8155675, long_kantor: 115.1253343, radius_meter: 100 };
+
+                try {
+                    const { generateAttendanceExcel } = require('../utils/excel-export');
+                    const buffer = await generateAttendanceExcel(presensiResults, filterInfo, officeSetting);
+                    
+                    // Generate filename
+                    let filename = 'Laporan_Absensi_';
+                    if (filterInfo.type === 'range') {
+                        filename += `${filterInfo.startDate}_${filterInfo.endDate}`;
+                    } else if (filterInfo.type === 'month') {
+                        filename += `${filterInfo.month}_${filterInfo.year}`;
+                    } else if (filterInfo.type === 'year') {
+                        filename += filterInfo.year;
+                    } else {
+                        filename += filterInfo.startDate;
+                    }
+                    filename += '.xlsx';
+                    
+                    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+                    res.send(buffer);
+                } catch (excelErr) {
+                    console.error('Excel generation error:', excelErr);
+                    req.flash('error', 'Gagal membuat file Excel');
+                    res.redirect('/admin/laporan');
+                }
+            });
+        });
+    } catch (error) {
+        console.error('Export error:', error);
+        req.flash('error', 'Gagal mengekspor data');
+        res.redirect('/admin/laporan');
+    }
 });
 
 // Setting Lokasi
@@ -764,6 +912,18 @@ router.post('/work-schedule/delete/:id', requireAuth, (req, res) => {
 // Get jabatan list (API)
 router.get('/jabatan/list', requireAuth, (req, res) => {
     const query = 'SELECT id, nama_jabatan, deskripsi FROM jabatan WHERE is_active = TRUE ORDER BY nama_jabatan';
+    
+    db.query(query, (err, results) => {
+        if (err) {
+            return res.json({ success: false, message: 'Database error' });
+        }
+        res.json({ success: true, data: results });
+    });
+});
+
+// Get schedules list (API)
+router.get('/schedules/list', requireAuth, (req, res) => {
+    const query = 'SELECT id, nama, jam_masuk, jam_keluar FROM jadwal_kerja WHERE is_active = TRUE ORDER BY jam_masuk';
     
     db.query(query, (err, results) => {
         if (err) {

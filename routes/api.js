@@ -531,14 +531,14 @@ router.post('/auth/login', async (req, res) => {
         const schedule = scheduleRows[0];
         workSchedule = {
           id: schedule.id,
-          name: schedule.name,
-          start_time: schedule.start_time,
-          end_time: schedule.end_time,
-          clock_in_start: schedule.clock_in_start,
-          clock_in_end: schedule.clock_in_end,
-          clock_out_start: schedule.clock_out_start,
-          clock_out_end: schedule.clock_out_end,
-          work_days: parseWorkDays(schedule.work_days),
+          name: schedule.nama,
+          start_time: schedule.jam_masuk,
+          end_time: schedule.jam_keluar,
+          clock_in_start: schedule.batas_absen_masuk_awal,
+          clock_in_end: schedule.batas_absen_masuk_akhir,
+          clock_out_start: schedule.batas_absen_keluar_awal,
+          clock_out_end: schedule.batas_absen_keluar_akhir,
+          work_days: parseWorkDays(schedule.hari_kerja),
           is_active: schedule.is_active === 1
         };
       }
@@ -946,13 +946,13 @@ router.get('/auth/profile/:id', authenticateToken, async (req, res) => {
         k.id, k.nik, k.nama, k.email, k.phone, k.profile_picture, 
         k.is_activated, k.foto_referensi,
         j.id as jabatan_id, j.nama_jabatan,
-        ws.id as schedule_id, ws.name as schedule_name, 
-        ws.start_time, ws.end_time, ws.work_days,
-        ws.clock_in_start, ws.clock_in_end,
-        ws.clock_out_start, ws.clock_out_end
+        ws.id as schedule_id, ws.nama as schedule_name, 
+        ws.jam_masuk as start_time, ws.jam_keluar as end_time, ws.hari_kerja as work_days,
+        ws.batas_absen_masuk_awal as clock_in_start, ws.batas_absen_masuk_akhir as clock_in_end,
+        ws.batas_absen_keluar_awal as clock_out_start, ws.batas_absen_keluar_akhir as clock_out_end
       FROM karyawan k
       LEFT JOIN jabatan j ON k.id_jabatan = j.id
-      LEFT JOIN work_schedule ws ON k.work_schedule_id = ws.id
+      LEFT JOIN jadwal_kerja ws ON k.work_schedule_id = ws.id
       WHERE k.id = ?
     `, [id]);
 
@@ -1804,7 +1804,7 @@ router.get('/schedule/today/:karyawan_id', authenticateToken, async (req, res) =
     // Get employee's work schedule
     const [rows] = await connection.execute(`
       SELECT ws.* 
-      FROM work_schedule ws
+      FROM jadwal_kerja ws
       JOIN karyawan k ON k.work_schedule_id = ws.id
       WHERE k.id = ? AND ws.is_active = TRUE
     `, [karyawan_id]);
@@ -1821,7 +1821,7 @@ router.get('/schedule/today/:karyawan_id', authenticateToken, async (req, res) =
     }
 
     const schedule = rows[0];
-    const workDays = parseWorkDays(schedule.work_days);
+    const workDays = parseWorkDays(schedule.hari_kerja);
     const hasWorkToday = workDays.includes(today);
 
     res.json({
@@ -1832,13 +1832,13 @@ router.get('/schedule/today/:karyawan_id', authenticateToken, async (req, res) =
         today: today,
         schedule: {
           id: schedule.id,
-          name: schedule.name,
-          start_time: schedule.start_time,
-          end_time: schedule.end_time,
-          clock_in_start: schedule.clock_in_start,
-          clock_in_end: schedule.clock_in_end,
-          clock_out_start: schedule.clock_out_start,
-          clock_out_end: schedule.clock_out_end,
+          name: schedule.nama,
+          start_time: schedule.jam_masuk,
+          end_time: schedule.jam_keluar,
+          clock_in_start: schedule.batas_absen_masuk_awal,
+          clock_in_end: schedule.batas_absen_masuk_akhir,
+          clock_out_start: schedule.batas_absen_keluar_awal,
+          clock_out_end: schedule.batas_absen_keluar_akhir,
           work_days: workDays
         }
       }
@@ -2120,31 +2120,48 @@ router.post('/attendance/checkin', (req, res, next) => {
     }
 
     console.log('Step 1: Getting office location settings...');
-    // Get office location settings (untuk perhitungan jarak saja, tidak memblokir)
+    // Get office location settings
     const [settingsRows] = await connection.execute(
       'SELECT lat_kantor, long_kantor, radius_meter FROM pengaturan LIMIT 1'
     );
 
-    let locationValidation = {
-      isValid: true,
-      distance: 0,
-      allowedRadius: 0
-    };
+    if (settingsRows.length === 0) {
+      return res.status(500).json({
+        success: false,
+        message: 'Office location not configured',
+        code: 'NO_OFFICE_LOCATION'
+      });
+    }
 
-    if (settingsRows.length > 0) {
-      const settings = settingsRows[0];
-      console.log('Office settings:', settings);
+    const settings = settingsRows[0];
+    console.log('Office settings:', settings);
 
-      console.log('Step 2: Calculating location distance (tidak memblokir)...');
-      // Calculate location distance (tidak memblokir absensi, hanya untuk informasi)
-      locationValidation = isLocationValid(
-        parseFloat(latitude),
-        parseFloat(longitude),
-        parseFloat(settings.lat_kantor),
-        parseFloat(settings.long_kantor),
-        settings.radius_meter
-      );
-      console.log('Location validation:', locationValidation);
+    console.log('Step 2: Validating location...');
+    // Validate location
+    const locationValidation = isLocationValid(
+      parseFloat(latitude),
+      parseFloat(longitude),
+      parseFloat(settings.lat_kantor),
+      parseFloat(settings.long_kantor),
+      settings.radius_meter
+    );
+    console.log('Location validation:', locationValidation);
+
+    if (!locationValidation.isValid) {
+      // Delete uploaded file
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Location is outside allowed area',
+        code: 'LOCATION_INVALID',
+        data: {
+          distance: locationValidation.distance,
+          allowedRadius: locationValidation.allowedRadius
+        }
+      });
     }
 
     console.log('Step 3: Getting employee face reference...');
@@ -2241,10 +2258,10 @@ router.post('/attendance/checkin', (req, res, next) => {
     }
 
     console.log('Step 7: Getting work schedule...');
-    // Get work schedule for status calculation (tidak memblokir, hanya untuk status)
+    // Get work schedule for status calculation
     const [scheduleRows] = await connection.execute(`
       SELECT ws.* 
-      FROM work_schedule ws
+      FROM jadwal_kerja ws
       JOIN karyawan k ON k.work_schedule_id = ws.id
       WHERE k.id = ?
     `, [req.user.id]);
@@ -2255,10 +2272,50 @@ router.post('/attendance/checkin', (req, res, next) => {
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
       const currentTime = new Date().toTimeString().split(' ')[0];
+      const workDays = parseWorkDays(schedule.hari_kerja);
+      const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      
+      // VALIDASI: Cek apakah hari ini adalah hari kerja
+      const isWorkDay = workDays.some(day => day.toLowerCase() === todayName);
+      
+      if (!isWorkDay) {
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        
+        return res.status(400).json({
+          success: false,
+          message: `Hari ini (${todayName}) bukan hari kerja. Hari kerja: ${workDays.join(', ')}`,
+          code: 'NOT_WORK_DAY',
+          data: {
+            today: todayName,
+            workDays: workDays,
+            scheduleName: schedule.nama
+          }
+        });
+      }
+      
+      // VALIDASI: Check-in hanya bisa dilakukan dalam window waktu yang ditentukan
+      if (currentTime < schedule.batas_absen_masuk_awal || currentTime > schedule.batas_absen_masuk_akhir) {
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        
+        return res.status(400).json({
+          success: false,
+          message: `Check-in hanya bisa dilakukan antara jam ${schedule.batas_absen_masuk_awal.substring(0,5)} - ${schedule.batas_absen_masuk_akhir.substring(0,5)}`,
+          code: 'OUTSIDE_CHECKIN_WINDOW',
+          data: {
+            currentTime: currentTime.substring(0,5),
+            allowedStart: schedule.batas_absen_masuk_awal.substring(0,5),
+            allowedEnd: schedule.batas_absen_masuk_akhir.substring(0,5),
+            scheduleName: schedule.nama
+          }
+        });
+      }
       
       // Tentukan status terlambat berdasarkan jam masuk kerja (start_time)
-      // Tidak memblokir absensi, hanya menentukan status
-      if (currentTime > schedule.start_time) {
+      if (currentTime > schedule.jam_masuk) {
         clockInStatus = 'late';
         isLate = true;
       }
@@ -2294,7 +2351,7 @@ router.post('/attendance/checkin', (req, res, next) => {
       req.user.id,
       latitude,
       longitude,
-      req.file.filename, // Use filename instead of full path
+      `uploads/karyawan/${req.file.filename}`, // Use full path
       locationValidation.distance,
       faceLogResult.insertId,
       bestMatch.similarity,
@@ -2465,27 +2522,34 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
       });
     }
 
-    // Calculate location distance (untuk informasi saja, tidak memblokir)
+    // Validate location (same as check in)
     const [settingsRows] = await connection.execute(
       'SELECT lat_kantor, long_kantor, radius_meter FROM pengaturan LIMIT 1'
     );
 
-    let locationValidation = {
-      isValid: true,
-      distance: 0,
-      allowedRadius: 0
-    };
+    const settings = settingsRows[0];
+    const locationValidation = isLocationValid(
+      parseFloat(latitude),
+      parseFloat(longitude),
+      parseFloat(settings.lat_kantor),
+      parseFloat(settings.long_kantor),
+      settings.radius_meter
+    );
 
-    if (settingsRows.length > 0) {
-      const settings = settingsRows[0];
-      // Calculate location distance (tidak memblokir absensi, hanya untuk informasi)
-      locationValidation = isLocationValid(
-        parseFloat(latitude),
-        parseFloat(longitude),
-        parseFloat(settings.lat_kantor),
-        parseFloat(settings.long_kantor),
-        settings.radius_meter
-      );
+    if (!locationValidation.isValid) {
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Location is outside allowed area',
+        code: 'LOCATION_INVALID',
+        data: {
+          distance: locationValidation.distance,
+          allowedRadius: locationValidation.allowedRadius
+        }
+      });
     }
 
     // Face recognition validation (same as check in)
@@ -2541,10 +2605,10 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
     const hours = Math.floor(workDurationMinutes / 60);
     const minutes = workDurationMinutes % 60;
 
-    // Get work schedule for status calculation (tidak memblokir, hanya untuk status)
+    // Get work schedule for status calculation
     const [scheduleRows] = await connection.execute(`
       SELECT ws.* 
-      FROM work_schedule ws
+      FROM jadwal_kerja ws
       JOIN karyawan k ON k.work_schedule_id = ws.id
       WHERE k.id = ?
     `, [req.user.id]);
@@ -2556,16 +2620,56 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
       const currentTime = new Date().toTimeString().split(' ')[0];
+      const workDays = parseWorkDays(schedule.hari_kerja);
+      const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      
+      // VALIDASI: Cek apakah hari ini adalah hari kerja
+      const isWorkDay = workDays.some(day => day.toLowerCase() === todayName);
+      
+      if (!isWorkDay) {
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        
+        return res.status(400).json({
+          success: false,
+          message: `Hari ini (${todayName}) bukan hari kerja. Hari kerja: ${workDays.join(', ')}`,
+          code: 'NOT_WORK_DAY',
+          data: {
+            today: todayName,
+            workDays: workDays,
+            scheduleName: schedule.nama
+          }
+        });
+      }
+      
+      // VALIDASI: Check-out hanya bisa dilakukan dalam window waktu yang ditentukan
+      if (currentTime < schedule.batas_absen_keluar_awal || currentTime > schedule.batas_absen_keluar_akhir) {
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        
+        return res.status(400).json({
+          success: false,
+          message: `Check-out hanya bisa dilakukan antara jam ${schedule.batas_absen_keluar_awal.substring(0,5)} - ${schedule.batas_absen_keluar_akhir.substring(0,5)}`,
+          code: 'OUTSIDE_CHECKOUT_WINDOW',
+          data: {
+            currentTime: currentTime.substring(0,5),
+            allowedStart: schedule.batas_absen_keluar_awal.substring(0,5),
+            allowedEnd: schedule.batas_absen_keluar_akhir.substring(0,5),
+            scheduleName: schedule.nama
+          }
+        });
+      }
       
       // Tentukan status checkout berdasarkan jam pulang kerja (end_time)
-      // Tidak memblokir absensi, hanya menentukan status
-      if (currentTime < schedule.end_time) {
+      if (currentTime < schedule.jam_keluar) {
         clockOutStatus = 'early';
         isEarly = true;
-      } else if (currentTime > schedule.end_time) {
+      } else if (currentTime > schedule.jam_keluar) {
         clockOutStatus = 'overtime';
         // Calculate overtime
-        const endTime = new Date(`1970-01-01T${schedule.end_time}`);
+        const endTime = new Date(`1970-01-01T${schedule.jam_keluar}`);
         const currentDateTime = new Date(`1970-01-01T${currentTime}`);
         overtimeMinutes = Math.max(0, Math.floor((currentDateTime - endTime) / (1000 * 60)));
       }
@@ -2597,7 +2701,7 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
       req.user.id,
       latitude,
       longitude,
-      req.file.filename, // Use filename instead of full path
+      `uploads/karyawan/${req.file.filename}`, // Use full path
       locationValidation.distance,
       faceLogResult.insertId,
       bestMatch.similarity,
@@ -2776,7 +2880,7 @@ router.get('/attendance/status/:karyawan_id', authenticateToken, async (req, res
     // Get work schedule to determine if can check in/out
     const [scheduleRows] = await connection.execute(`
       SELECT ws.* 
-      FROM work_schedule ws
+      FROM jadwal_kerja ws
       JOIN karyawan k ON k.work_schedule_id = ws.id
       WHERE k.id = ?
     `, [karyawan_id]);
@@ -2787,7 +2891,7 @@ router.get('/attendance/status/:karyawan_id', authenticateToken, async (req, res
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
       const currentTime = new Date().toTimeString().split(' ')[0];
-      const workDays = parseWorkDays(schedule.work_days);
+      const workDays = parseWorkDays(schedule.hari_kerja);
       const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
       
       // Check if today is a work day (case-insensitive)
@@ -2798,11 +2902,11 @@ router.get('/attendance/status/:karyawan_id', authenticateToken, async (req, res
         canCheckOut = false;
       } else {
         // Check time constraints
-        if (canCheckIn && schedule.clock_in_start && schedule.clock_in_end) {
-          canCheckIn = currentTime >= schedule.clock_in_start && currentTime <= schedule.clock_in_end;
+        if (canCheckIn && schedule.batas_absen_masuk_awal && schedule.batas_absen_masuk_akhir) {
+          canCheckIn = currentTime >= schedule.batas_absen_masuk_awal && currentTime <= schedule.batas_absen_masuk_akhir;
         }
-        if (canCheckOut && schedule.clock_out_start && schedule.clock_out_end) {
-          canCheckOut = currentTime >= schedule.clock_out_start && currentTime <= schedule.clock_out_end;
+        if (canCheckOut && schedule.batas_absen_keluar_awal && schedule.batas_absen_keluar_akhir) {
+          canCheckOut = currentTime >= schedule.batas_absen_keluar_awal && currentTime <= schedule.batas_absen_keluar_akhir;
         }
       }
     }
@@ -2890,7 +2994,7 @@ router.get('/attendance/today', authenticateToken, async (req, res) => {
     // Get work schedule
     const [scheduleRows] = await connection.execute(`
       SELECT ws.* 
-      FROM work_schedule ws
+      FROM jadwal_kerja ws
       JOIN karyawan k ON k.work_schedule_id = ws.id
       WHERE k.id = ?
     `, [karyawanId]);
@@ -2900,14 +3004,14 @@ router.get('/attendance/today', authenticateToken, async (req, res) => {
       const schedule = scheduleRows[0];
       workSchedule = {
         id: schedule.id,
-        name: schedule.name,
-        start_time: schedule.start_time,
-        end_time: schedule.end_time,
-        clock_in_start: schedule.clock_in_start,
-        clock_in_end: schedule.clock_in_end,
-        clock_out_start: schedule.clock_out_start,
-        clock_out_end: schedule.clock_out_end,
-        work_days: parseWorkDays(schedule.work_days)
+        name: schedule.nama,
+        start_time: schedule.jam_masuk,
+        end_time: schedule.jam_keluar,
+        clock_in_start: schedule.batas_absen_masuk_awal,
+        clock_in_end: schedule.batas_absen_masuk_akhir,
+        clock_out_start: schedule.batas_absen_keluar_awal,
+        clock_out_end: schedule.batas_absen_keluar_akhir,
+        work_days: parseWorkDays(schedule.hari_kerja)
       };
     }
 

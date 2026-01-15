@@ -66,6 +66,8 @@ app.use(express.urlencoded({
     limit: process.env.MAX_FILE_SIZE || '5mb'
 }));
 app.use(express.static('public'));
+// Serve uploads folder for images
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Session configuration
 app.use(session({

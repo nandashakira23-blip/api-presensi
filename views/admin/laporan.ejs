@@ -154,19 +154,98 @@
 
                 <!-- Filter -->
                 <div class="bg-dark-800 rounded-xl shadow-2xl p-4 sm:p-6 mb-6 border border-brown-600/30">
-                    <form method="GET" action="/admin/laporan" class="flex flex-col sm:flex-row sm:items-end space-y-4 sm:space-y-0 sm:space-x-4">
-                        <div class="flex-1">
-                            <label for="tanggal" class="block text-sm font-medium text-brown-300 mb-2">
-                                <i class="fas fa-calendar mr-2"></i>Filter Tanggal
-                            </label>
-                            <input type="date" id="tanggal" name="tanggal" value="<%= tanggal %>"
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-white flex items-center">
+                            <i class="fas fa-filter text-brown-400 mr-3"></i>
+                            Filter Laporan
+                        </h3>
+                        <button id="btnExport" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg transition duration-200 text-sm shadow-lg">
+                            <i class="fas fa-file-excel mr-2"></i>Export Excel
+                        </button>
+                    </div>
+                    
+                    <form method="GET" action="/admin/laporan" id="filterForm">
+                        <!-- Filter Type Selection -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-brown-300 mb-2">Tipe Filter</label>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <button type="button" onclick="setFilterType('date')" 
+                                        class="filter-type-btn px-4 py-2 rounded-lg border transition duration-200 <%= filter.filterType === 'date' || !filter.filterType ? 'bg-brown-600 border-brown-500 text-white' : 'bg-dark-700 border-brown-600/50 text-brown-300 hover:bg-dark-600' %>">
+                                    <i class="fas fa-calendar-day mr-2"></i>Tanggal
+                                </button>
+                                <button type="button" onclick="setFilterType('range')" 
+                                        class="filter-type-btn px-4 py-2 rounded-lg border transition duration-200 <%= filter.filterType === 'range' ? 'bg-brown-600 border-brown-500 text-white' : 'bg-dark-700 border-brown-600/50 text-brown-300 hover:bg-dark-600' %>">
+                                    <i class="fas fa-calendar-week mr-2"></i>Rentang
+                                </button>
+                                <button type="button" onclick="setFilterType('month')" 
+                                        class="filter-type-btn px-4 py-2 rounded-lg border transition duration-200 <%= filter.filterType === 'month' ? 'bg-brown-600 border-brown-500 text-white' : 'bg-dark-700 border-brown-600/50 text-brown-300 hover:bg-dark-600' %>">
+                                    <i class="fas fa-calendar-alt mr-2"></i>Bulan
+                                </button>
+                                <button type="button" onclick="setFilterType('year')" 
+                                        class="filter-type-btn px-4 py-2 rounded-lg border transition duration-200 <%= filter.filterType === 'year' ? 'bg-brown-600 border-brown-500 text-white' : 'bg-dark-700 border-brown-600/50 text-brown-300 hover:bg-dark-600' %>">
+                                    <i class="fas fa-calendar mr-2"></i>Tahun
+                                </button>
+                            </div>
+                        </div>
+
+                        <input type="hidden" name="filterType" id="filterType" value="<%= filter.filterType || 'date' %>">
+
+                        <!-- Date Filter -->
+                        <div id="dateFilter" class="filter-content <%= filter.filterType === 'date' || !filter.filterType ? '' : 'hidden' %>">
+                            <label for="tanggal" class="block text-sm font-medium text-brown-300 mb-2">Pilih Tanggal</label>
+                            <input type="date" id="tanggal" name="tanggal" value="<%= filter.tanggal %>"
                                    class="w-full px-4 py-2 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 transition duration-200 text-white">
                         </div>
-                        <div class="flex space-x-2">
-                            <button type="submit" class="bg-brown-600 hover:bg-brown-500 text-white px-4 sm:px-6 py-2 rounded-lg transition duration-200 text-sm sm:text-base shadow-lg">
-                                <i class="fas fa-search mr-2"></i>Filter
+
+                        <!-- Range Filter -->
+                        <div id="rangeFilter" class="filter-content <%= filter.filterType === 'range' ? '' : 'hidden' %>">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="startDate" class="block text-sm font-medium text-brown-300 mb-2">Tanggal Mulai</label>
+                                    <input type="date" id="startDate" name="startDate" value="<%= filter.startDate || '' %>"
+                                           class="w-full px-4 py-2 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 transition duration-200 text-white">
+                                </div>
+                                <div>
+                                    <label for="endDate" class="block text-sm font-medium text-brown-300 mb-2">Tanggal Akhir</label>
+                                    <input type="date" id="endDate" name="endDate" value="<%= filter.endDate || '' %>"
+                                           class="w-full px-4 py-2 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 transition duration-200 text-white">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Month Filter -->
+                        <div id="monthFilter" class="filter-content <%= filter.filterType === 'month' ? '' : 'hidden' %>">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="month" class="block text-sm font-medium text-brown-300 mb-2">Bulan</label>
+                                    <select id="month" name="month" class="w-full px-4 py-2 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 transition duration-200 text-white">
+                                        <option value="">Pilih Bulan</option>
+                                        <% const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                           months.forEach((m, i) => { %>
+                                            <option value="<%= i + 1 %>" <%= filter.month == (i + 1) ? 'selected' : '' %>><%= m %></option>
+                                        <% }); %>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="yearMonth" class="block text-sm font-medium text-brown-300 mb-2">Tahun</label>
+                                    <input type="number" id="yearMonth" name="year" value="<%= filter.year || new Date().getFullYear() %>" min="2020" max="2100"
+                                           class="w-full px-4 py-2 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 transition duration-200 text-white">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Year Filter -->
+                        <div id="yearFilter" class="filter-content <%= filter.filterType === 'year' ? '' : 'hidden' %>">
+                            <label for="yearOnly" class="block text-sm font-medium text-brown-300 mb-2">Pilih Tahun</label>
+                            <input type="number" id="yearOnly" name="year" value="<%= filter.year || new Date().getFullYear() %>" min="2020" max="2100"
+                                   class="w-full px-4 py-2 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 transition duration-200 text-white">
+                        </div>
+
+                        <div class="flex space-x-2 mt-4">
+                            <button type="submit" class="bg-brown-600 hover:bg-brown-500 text-white px-6 py-2 rounded-lg transition duration-200 text-sm shadow-lg flex-1">
+                                <i class="fas fa-search mr-2"></i>Tampilkan
                             </button>
-                            <a href="/admin/laporan" class="bg-gray-600 hover:bg-gray-500 text-white px-4 sm:px-6 py-2 rounded-lg transition duration-200 text-sm sm:text-base shadow-lg">
+                            <a href="/admin/laporan" class="bg-gray-600 hover:bg-gray-500 text-white px-6 py-2 rounded-lg transition duration-200 text-sm shadow-lg text-center">
                                 <i class="fas fa-refresh mr-2"></i>Reset
                             </a>
                         </div>
@@ -205,10 +284,10 @@
                             <% presensi.forEach(function(p) { %>
                                 <div class="border-b border-brown-600/30 p-4">
                                     <div class="flex items-start space-x-4">
-                                        <img src="/uploads/karyawan/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
+                                        <img src="/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
                                              onerror="this.src='/LogoApp.jpeg'; this.onerror=null;"
                                              class="w-16 h-16 rounded-lg object-cover cursor-pointer flex-shrink-0 border-2 border-brown-600/50"
-                                             onclick="showImage('/uploads/karyawan/<%= p.foto_checkin %>')">
+                                             onclick="showImage('/<%= p.foto_checkin %>')">>
                                         <div class="flex-1 min-w-0">
                                             <div class="flex items-center justify-between mb-2">
                                                 <h3 class="font-semibold text-white truncate"><%= p.nama %></h3>
@@ -277,10 +356,10 @@
                                                 <%= new Date(p.waktu).toLocaleString('id-ID') %>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
-                                                <img src="/uploads/karyawan/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
+                                                <img src="/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
                                                      onerror="this.src='/LogoApp.jpeg'; this.onerror=null;"
                                                      class="w-12 h-12 rounded-lg object-cover cursor-pointer border-2 border-brown-600/50 hover:border-brown-400 transition duration-200"
-                                                     onclick="showImage('/uploads/karyawan/<%= p.foto_checkin %>')">
+                                                     onclick="showImage('/<%= p.foto_checkin %>')">
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <% if (p.status_lokasi === 'Dalam Area') { %>
@@ -818,6 +897,41 @@
             updateClock();
             setInterval(updateClock, 1000);
         }
+
+        // Filter Type Switching
+        function setFilterType(type) {
+            document.getElementById('filterType').value = type;
+            
+            // Hide all filter contents
+            document.querySelectorAll('.filter-content').forEach(el => el.classList.add('hidden'));
+            
+            // Show selected filter content
+            if (type === 'date') {
+                document.getElementById('dateFilter').classList.remove('hidden');
+            } else if (type === 'range') {
+                document.getElementById('rangeFilter').classList.remove('hidden');
+            } else if (type === 'month') {
+                document.getElementById('monthFilter').classList.remove('hidden');
+            } else if (type === 'year') {
+                document.getElementById('yearFilter').classList.remove('hidden');
+            }
+            
+            // Update button styles
+            document.querySelectorAll('.filter-type-btn').forEach(btn => {
+                btn.classList.remove('bg-brown-600', 'border-brown-500', 'text-white');
+                btn.classList.add('bg-dark-700', 'border-brown-600/50', 'text-brown-300');
+            });
+            event.target.classList.remove('bg-dark-700', 'border-brown-600/50', 'text-brown-300');
+            event.target.classList.add('bg-brown-600', 'border-brown-500', 'text-white');
+        }
+
+        // Export to Excel
+        document.getElementById('btnExport').addEventListener('click', function() {
+            const form = document.getElementById('filterForm');
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            window.location.href = '/admin/laporan/export?' + params.toString();
+        });
     </script>
 </body>
 </html>
