@@ -1,0 +1,164 @@
+==============================================
+SETUP AUTO DEPLOY
+==============================================
+
+Ada 2 opsi: GitHub Webhook (instant) atau Cron Job (setiap X menit)
+
+==============================================
+OPSI 1: GITHUB WEBHOOK (RECOMMENDED)
+==============================================
+
+### Step 1: Setup di Server
+
+ssh root@76.13.19.34
+
+# 1. Buat deploy script executable
+cd /var/www/api-presensi
+chmod +x scripts/deploy.sh
+chmod +x scripts/auto-pull.sh
+
+# 2. Test deploy script
+bash scripts/deploy.sh
+
+# 3. Tambah WEBHOOK_SECRET ke .env
+nano .env
+# Tambahkan:
+WEBHOOK_SECRET=rahasia-webhook-123
+WEBHOOK_PORT=3001
+
+# 4. Install dependencies untuk webhook
+npm install express body-parser
+
+# 5. Start webhook server dengan PM2
+pm2 start scripts/webhook-server.js --name webhook
+pm2 save
+
+# 6. Cek status
+pm2 status
+
+### Step 2: Setup di GitHub
+
+1. Buka: https://github.com/nandashakira23-blip/api-presensi/settings/hooks
+2. Click: "Add webhook"
+3. Payload URL: http://76.13.19.34:3001/webhook
+4. Content type: application/json
+5. Secret: rahasia-webhook-123 (sama dengan WEBHOOK_SECRET)
+6. Events: Just the push event
+7. Active: ✓
+8. Click: "Add webhook"
+
+### Step 3: Test
+
+1. Push ke GitHub dari local
+2. Lihat log webhook di server:
+   pm2 logs webhook
+
+3. Cek apakah auto deploy jalan:
+   pm2 logs presensi-api --lines 20
+
+==============================================
+OPSI 2: CRON JOB (SIMPLE)
+==============================================
+
+### Setup Cron Job (cek setiap 5 menit)
+
+ssh root@76.13.19.34
+
+# 1. Buat script executable
+cd /var/www/api-presensi
+chmod +x scripts/deploy.sh
+chmod +x scripts/auto-pull.sh
+
+# 2. Edit crontab
+crontab -e
+
+# 3. Tambahkan baris ini (cek setiap 5 menit):
+*/5 * * * * /var/www/api-presensi/scripts/auto-pull.sh >> /var/log/auto-pull.log 2>&1
+
+# Atau setiap 1 menit:
+* * * * * /var/www/api-presensi/scripts/auto-pull.sh >> /var/log/auto-pull.log 2>&1
+
+# 4. Save dan exit (Ctrl+O, Enter, Ctrl+X)
+
+# 5. Cek cron log
+tail -f /var/log/auto-pull.log
+
+==============================================
+TESTING
+==============================================
+
+### Test Auto Deploy:
+
+1. Edit file di local (misal tambah comment)
+2. Commit dan push:
+   git add .
+   git commit -m "Test auto deploy"
+   git push origin main
+
+3. Tunggu beberapa detik (webhook) atau menit (cron)
+
+4. Cek di server:
+   ssh root@76.13.19.34
+   cd /var/www/api-presensi
+   git log -1
+   pm2 logs presensi-api --lines 20
+
+==============================================
+TROUBLESHOOTING
+==============================================
+
+### Webhook tidak jalan:
+
+1. Cek webhook server running:
+   pm2 status webhook
+   pm2 logs webhook
+
+2. Cek port 3001 terbuka:
+   netstat -tulpn | grep 3001
+
+3. Cek firewall:
+   ufw status
+   ufw allow 3001
+
+4. Test webhook manual:
+   curl -X POST http://76.13.19.34:3001/webhook
+
+### Cron job tidak jalan:
+
+1. Cek cron service:
+   systemctl status cron
+
+2. Cek log:
+   tail -f /var/log/auto-pull.log
+
+3. Cek permission:
+   ls -la /var/www/api-presensi/scripts/
+
+4. Test manual:
+   bash /var/www/api-presensi/scripts/auto-pull.sh
+
+==============================================
+KEAMANAN
+==============================================
+
+1. Gunakan WEBHOOK_SECRET yang kuat
+2. Jangan expose webhook port ke public (gunakan nginx reverse proxy)
+3. Backup database sebelum auto deploy
+4. Monitor log secara berkala
+
+==============================================
+REKOMENDASI
+==============================================
+
+Gunakan WEBHOOK untuk production karena:
+- Instant deploy setelah push
+- Tidak perlu polling setiap menit
+- Lebih efisien resource
+- Bisa lihat log deploy di PM2
+
+Gunakan CRON JOB untuk:
+- Testing/development
+- Server tanpa port terbuka
+- Tidak bisa setup webhook di GitHub
+
+==============================================
