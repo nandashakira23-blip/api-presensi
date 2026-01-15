@@ -159,7 +159,8 @@
                                             <div class="flex items-center mb-3">
                                                 <% if (k.foto_referensi) { %>
                                                     <img src="/uploads/karyawan/<%= k.foto_referensi %>" alt="Foto <%= k.nama %>" 
-                                                         class="w-12 h-12 rounded-full object-cover mr-3 border-2 border-brown-600/50"
+                                                         onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'w-12 h-12 rounded-full bg-brown-700 flex items-center justify-center border-2 border-brown-600/50\'><i class=\'fas fa-user text-brown-300\'></i></div>';"
+                                                         class="w-12 h-12 rounded-full object-cover mr-3 border-2 border-brown-600/50 cursor-pointer"
                                                          onclick="showImage('/uploads/karyawan/<%= k.foto_referensi %>')">
                                                 <% } else { %>
                                                     <div class="w-12 h-12 rounded-full bg-brown-700 flex items-center justify-center mr-3 border-2 border-brown-600/50">
@@ -260,6 +261,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
                                                 <% if (k.foto_referensi) { %>
                                                     <img src="/uploads/karyawan/<%= k.foto_referensi %>" alt="Foto <%= k.nama %>" 
+                                                         onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'w-10 h-10 rounded-full bg-brown-700 flex items-center justify-center border-2 border-brown-600/50\'><i class=\'fas fa-user text-brown-300 text-sm\'></i></div>';"
                                                          class="w-10 h-10 rounded-full object-cover cursor-pointer border-2 border-brown-600/50 hover:border-brown-400 transition duration-200"
                                                          onclick="showImage('/uploads/karyawan/<%= k.foto_referensi %>')">
                                                 <% } else { %>
