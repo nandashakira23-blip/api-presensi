@@ -61,6 +61,9 @@ uploads/test/*
 !uploads/faces/.gitkeep
 !uploads/test/.gitkeep
 
+# Android App folder
+Android App/
+
 # Database files
 data/*.db
 data/*.sqlite
