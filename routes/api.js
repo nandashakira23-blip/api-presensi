@@ -2258,7 +2258,7 @@ router.post('/attendance/checkin', (req, res, next) => {
     }
 
     console.log('Step 7: Getting work schedule...');
-    // Get work schedule for status calculation
+    // Get work schedule for status calculation (tidak memblokir, hanya untuk status)
     const [scheduleRows] = await connection.execute(`
       SELECT ws.* 
       FROM work_schedule ws
@@ -2272,49 +2272,9 @@ router.post('/attendance/checkin', (req, res, next) => {
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
       const currentTime = new Date().toTimeString().split(' ')[0];
-      const workDays = parseWorkDays(schedule.work_days);
-      const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       
-      // VALIDASI: Cek apakah hari ini adalah hari kerja
-      const isWorkDay = workDays.some(day => day.toLowerCase() === todayName);
-      
-      if (!isWorkDay) {
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
-        
-        return res.status(400).json({
-          success: false,
-          message: `Hari ini (${todayName}) bukan hari kerja. Hari kerja: ${workDays.join(', ')}`,
-          code: 'NOT_WORK_DAY',
-          data: {
-            today: todayName,
-            workDays: workDays,
-            scheduleName: schedule.name
-          }
-        });
-      }
-      
-      // VALIDASI: Check-in hanya bisa dilakukan dalam window waktu yang ditentukan
-      if (currentTime < schedule.clock_in_start || currentTime > schedule.clock_in_end) {
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
-        
-        return res.status(400).json({
-          success: false,
-          message: `Check-in hanya bisa dilakukan antara jam ${schedule.clock_in_start.substring(0,5)} - ${schedule.clock_in_end.substring(0,5)}`,
-          code: 'OUTSIDE_CHECKIN_WINDOW',
-          data: {
-            currentTime: currentTime.substring(0,5),
-            allowedStart: schedule.clock_in_start.substring(0,5),
-            allowedEnd: schedule.clock_in_end.substring(0,5),
-            scheduleName: schedule.name
-          }
-        });
-      }
-      
-      // Tentukan status terlambat berdasarkan jam masuk kerja (start_time), bukan clock_in_end
+      // Tentukan status terlambat berdasarkan jam masuk kerja (start_time)
+      // Tidak memblokir absensi, hanya menentukan status
       if (currentTime > schedule.start_time) {
         clockInStatus = 'late';
         isLate = true;
@@ -2605,7 +2565,7 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
     const hours = Math.floor(workDurationMinutes / 60);
     const minutes = workDurationMinutes % 60;
 
-    // Get work schedule for status calculation
+    // Get work schedule for status calculation (tidak memblokir, hanya untuk status)
     const [scheduleRows] = await connection.execute(`
       SELECT ws.* 
       FROM work_schedule ws
@@ -2620,49 +2580,9 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
       const currentTime = new Date().toTimeString().split(' ')[0];
-      const workDays = parseWorkDays(schedule.work_days);
-      const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-      
-      // VALIDASI: Cek apakah hari ini adalah hari kerja
-      const isWorkDay = workDays.some(day => day.toLowerCase() === todayName);
-      
-      if (!isWorkDay) {
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
-        
-        return res.status(400).json({
-          success: false,
-          message: `Hari ini (${todayName}) bukan hari kerja. Hari kerja: ${workDays.join(', ')}`,
-          code: 'NOT_WORK_DAY',
-          data: {
-            today: todayName,
-            workDays: workDays,
-            scheduleName: schedule.name
-          }
-        });
-      }
-      
-      // VALIDASI: Check-out hanya bisa dilakukan dalam window waktu yang ditentukan
-      if (currentTime < schedule.clock_out_start || currentTime > schedule.clock_out_end) {
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
-        
-        return res.status(400).json({
-          success: false,
-          message: `Check-out hanya bisa dilakukan antara jam ${schedule.clock_out_start.substring(0,5)} - ${schedule.clock_out_end.substring(0,5)}`,
-          code: 'OUTSIDE_CHECKOUT_WINDOW',
-          data: {
-            currentTime: currentTime.substring(0,5),
-            allowedStart: schedule.clock_out_start.substring(0,5),
-            allowedEnd: schedule.clock_out_end.substring(0,5),
-            scheduleName: schedule.name
-          }
-        });
-      }
       
       // Tentukan status checkout berdasarkan jam pulang kerja (end_time)
+      // Tidak memblokir absensi, hanya menentukan status
       if (currentTime < schedule.end_time) {
         clockOutStatus = 'early';
         isEarly = true;
