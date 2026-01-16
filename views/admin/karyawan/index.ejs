@@ -209,8 +209,7 @@
                                                             data-id="<%= k.id %>"
                                                             data-nik="<%= k.nik %>"
                                                             data-nama="<%= k.nama %>"
-                                                            data-jabatan="<%= k.id_jabatan || '' %>"
-                                                            data-schedule="<%= k.work_schedule_id || '' %>">
+                                                            data-jabatan="<%= k.id_jabatan || '' %>">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
                                                     <button class="reset-karyawan-btn-mobile text-orange-400 hover:text-orange-300 transition duration-200 p-2 rounded-lg hover:bg-orange-900/30"
@@ -314,8 +313,7 @@
                                                             data-id="<%= k.id %>"
                                                             data-nik="<%= k.nik %>"
                                                             data-nama="<%= k.nama %>"
-                                                            data-jabatan="<%= k.id_jabatan || '' %>"
-                                                            data-schedule="<%= k.work_schedule_id || '' %>">
+                                                            data-jabatan="<%= k.id_jabatan || '' %>">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
                                                     <button class="reset-karyawan-btn text-orange-400 hover:text-orange-300 transition duration-200 p-2 rounded-lg hover:bg-orange-900/30" 
@@ -388,28 +386,15 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label for="editJabatan" class="block text-sm font-semibold text-brown-300 mb-2">
-                                <i class="fas fa-briefcase mr-2"></i>Jabatan *
-                            </label>
-                            <select id="editJabatan" required
-                                    class="w-full px-3 py-2 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 text-white">
-                                <option value="">Pilih Jabatan</option>
-                                <!-- Options will be loaded dynamically -->
-                            </select>
-                        </div>
-
-                        <div>
-                            <label for="editSchedule" class="block text-sm font-semibold text-brown-300 mb-2">
-                                <i class="fas fa-clock mr-2"></i>Jadwal Kerja / Shift
-                            </label>
-                            <select id="editSchedule"
-                                    class="w-full px-3 py-2 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 text-white">
-                                <option value="">Pilih Jadwal Kerja</option>
-                                <!-- Options will be loaded dynamically -->
-                            </select>
-                        </div>
+                    <div>
+                        <label for="editJabatan" class="block text-sm font-semibold text-brown-300 mb-2">
+                            <i class="fas fa-briefcase mr-2"></i>Jabatan *
+                        </label>
+                        <select id="editJabatan" required
+                                class="w-full px-3 py-2 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 text-white">
+                            <option value="">Pilih Jabatan</option>
+                            <!-- Options will be loaded dynamically -->
+                        </select>
                     </div>
 
                     <div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-4 border-t border-brown-600/30">
@@ -516,8 +501,6 @@
 
         // Cache for jabatan options
         let jabatanOptionsCache = null;
-        // Cache for schedule options
-        let scheduleOptionsCache = null;
 
         // Load jabatan options for edit modal
         async function loadJabatanOptions(forceReload = false) {
@@ -595,86 +578,11 @@
             }
         }
 
-        // Load schedule options for edit modal
-        async function loadScheduleOptions(forceReload = false) {
-            console.log('loadScheduleOptions called, forceReload:', forceReload);
-            
-            // Use cache if available and not forcing reload
-            if (scheduleOptionsCache && !forceReload) {
-                console.log('Using cached schedule options');
-                populateScheduleSelect(scheduleOptionsCache);
-                return true;
-            }
 
-            try {
-                console.log('Fetching schedules from API...');
-                const response = await fetch('/admin/schedules/list', {
-                    method: 'GET',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                console.log('Response status:', response.status);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('HTTP error response:', errorText);
-                    throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-                }
-                
-                const result = await response.json();
-                console.log('Schedule API response:', result);
-                
-                if (result.success) {
-                    scheduleOptionsCache = result.data;
-                    populateScheduleSelect(result.data);
-                    console.log('Schedule options loaded successfully');
-                    return true;
-                } else {
-                    console.error('Failed to load schedules:', result.message);
-                    // Don't alert, just log - schedule is optional
-                    return false;
-                }
-            } catch (error) {
-                console.error('Failed to load schedule options:', error);
-                // Don't alert, just log - schedule is optional
-                return false;
-            }
-        }
-
-        // Populate schedule select element
-        function populateScheduleSelect(scheduleData) {
-            console.log('populateScheduleSelect called with:', scheduleData);
-            
-            const select = document.getElementById('editSchedule');
-            if (!select) {
-                console.error('editSchedule select element not found!');
-                return;
-            }
-            
-            select.innerHTML = '<option value="">Pilih Jadwal Kerja</option>';
-            
-            if (scheduleData && Array.isArray(scheduleData)) {
-                scheduleData.forEach(schedule => {
-                    const option = document.createElement('option');
-                    option.value = schedule.id;
-                    const jamMasuk = schedule.jam_masuk ? schedule.jam_masuk.substring(0, 5) : '';
-                    const jamKeluar = schedule.jam_keluar ? schedule.jam_keluar.substring(0, 5) : '';
-                    option.textContent = `${schedule.nama} (${jamMasuk} - ${jamKeluar})`;
-                    select.appendChild(option);
-                });
-                console.log('Schedule select populated with', scheduleData.length, 'options');
-            } else {
-                console.error('Invalid schedule data:', scheduleData);
-            }
-        }
 
         // Edit karyawan function
-        async function editKaryawan(id, nik, nama, idJabatan, idSchedule) {
-            console.log('editKaryawan called with:', { id, nik, nama, idJabatan, idSchedule });
+        async function editKaryawan(id, nik, nama, idJabatan) {
+            console.log('editKaryawan called with:', { id, nik, nama, idJabatan });
             
             try {
                 // Ensure jabatan options are loaded
@@ -684,10 +592,6 @@
                     alert('Gagal memuat data jabatan. Silakan coba lagi.');
                     return;
                 }
-                
-                // Load schedule options (optional, don't fail if it doesn't load)
-                console.log('Loading schedule options...');
-                await loadScheduleOptions();
                 
                 console.log('Setting form values...');
                 // Set form values
@@ -699,12 +603,7 @@
                 const jabatanSelect = document.getElementById('editJabatan');
                 const jabatanId = idJabatan && idJabatan !== 'null' && idJabatan !== '' ? String(idJabatan) : '';
                 
-                // Set schedule dropdown to current value
-                const scheduleSelect = document.getElementById('editSchedule');
-                const scheduleId = idSchedule && idSchedule !== 'null' && idSchedule !== '' ? String(idSchedule) : '';
-                
                 console.log('Setting jabatan dropdown to:', jabatanId);
-                console.log('Setting schedule dropdown to:', scheduleId);
                 
                 // Wait for DOM to be ready, then set value
                 setTimeout(() => {
@@ -718,17 +617,7 @@
                         }
                     }
                     
-                    // Set schedule value
-                    scheduleSelect.value = scheduleId;
-                    if (scheduleSelect.value !== scheduleId && scheduleId) {
-                        const targetOption = Array.from(scheduleSelect.options).find(opt => opt.value === scheduleId);
-                        if (targetOption) {
-                            targetOption.selected = true;
-                        }
-                    }
-                    
                     console.log('Jabatan dropdown set to:', jabatanSelect.value);
-                    console.log('Schedule dropdown set to:', scheduleSelect.value);
                 }, 100);
                 
                 console.log('Showing modal...');
@@ -758,10 +647,9 @@
                 const nik = btn.dataset.nik;
                 const nama = btn.dataset.nama;
                 const jabatan = btn.dataset.jabatan;
-                const schedule = btn.dataset.schedule;
                 
-                console.log('Edit button clicked:', { id, nik, nama, jabatan, schedule });
-                editKaryawan(id, nik, nama, jabatan, schedule);
+                console.log('Edit button clicked:', { id, nik, nama, jabatan });
+                editKaryawan(id, nik, nama, jabatan);
             }
             
             // Mobile edit button
@@ -772,10 +660,9 @@
                 const nik = btn.dataset.nik;
                 const nama = btn.dataset.nama;
                 const jabatan = btn.dataset.jabatan;
-                const schedule = btn.dataset.schedule;
                 
-                console.log('Mobile edit button clicked:', { id, nik, nama, jabatan, schedule });
-                editKaryawan(id, nik, nama, jabatan, schedule);
+                console.log('Mobile edit button clicked:', { id, nik, nama, jabatan });
+                editKaryawan(id, nik, nama, jabatan);
             }
 
             // Desktop reset button
@@ -903,8 +790,7 @@
                     id: document.getElementById('editKaryawanId').value,
                     nik: document.getElementById('editNik').value.trim(),
                     nama: document.getElementById('editNama').value.trim(),
-                    id_jabatan: document.getElementById('editJabatan').value,
-                    work_schedule_id: document.getElementById('editSchedule').value || null
+                    id_jabatan: document.getElementById('editJabatan').value
                 };
 
                 console.log('Form data:', formData);
@@ -949,19 +835,13 @@
             console.error('Edit form not found!');
         }
 
-        // Pre-load jabatan and schedule options on page load
+        // Pre-load jabatan options on page load
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded, pre-loading options...');
             loadJabatanOptions().then(() => {
                 console.log('Jabatan options pre-loaded successfully');
             }).catch(error => {
                 console.error('Failed to pre-load jabatan options:', error);
-            });
-            
-            loadScheduleOptions().then(() => {
-                console.log('Schedule options pre-loaded successfully');
-            }).catch(error => {
-                console.error('Failed to pre-load schedule options:', error);
             });
         });
     </script>
