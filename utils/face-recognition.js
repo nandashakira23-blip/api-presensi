@@ -148,7 +148,7 @@ async function compareFaces(referenceFaces, detectedFaces) {
       faceIndex: i,
       isMatch: isMatch,
       similarity: bestSimilarity,
-      confidence: isMatch ? 'Tinggi' : (bestSimilarity > 0.7 ? 'Sedang' : 'Rendah'),
+      confidence: isMatch ? 'high' : (bestSimilarity > 0.7 ? 'medium' : 'low'),
       bestMatch: bestMatch,
       face: detectedFace,
       threshold: threshold

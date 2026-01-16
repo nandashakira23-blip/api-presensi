@@ -3,29 +3,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const dbOriginal = require('../config/database');
-
-// Wrapper to make db.query work with both callbacks and promises
-const db = {
-    query: function(sql, paramsOrCallback, callback) {
-        // If only 2 args and second is function, it's (sql, callback)
-        if (typeof paramsOrCallback === 'function') {
-            callback = paramsOrCallback;
-            paramsOrCallback = null;
-        }
-        
-        // If callback provided, use callback style
-        if (callback) {
-            dbOriginal.query(sql, paramsOrCallback)
-                .then(results => callback(null, results))
-                .catch(err => callback(err));
-        } else {
-            // No callback, return promise
-            return dbOriginal.query(sql, paramsOrCallback);
-        }
-    }
-};
-
+const db = require('../config/database');
 const { requireAuth, redirectIfAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -99,7 +77,7 @@ const testUpload = multer({
 });
 
 // Login page
-router.get('/login', redirectIfAuth, async (req, res) => {
+router.get('/login', redirectIfAuth, (req, res) => {
     res.render('admin/login', { 
         title: 'Admin Login - Fleur Atelier',
         error: req.flash('error')
@@ -107,7 +85,7 @@ router.get('/login', redirectIfAuth, async (req, res) => {
 });
 
 // Login process
-router.post('/login', async (req, res) => {
+router.post('/login', (req, res) => {
     const { username, password } = req.body;
     
     console.log('Login attempt:', { username, password: password ? '***' : 'empty' });
@@ -207,7 +185,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
 });
 
 // API for attendance chart data
-router.get('/api/attendance-chart-data', requireAuth, async (req, res) => {
+router.get('/api/attendance-chart-data', requireAuth, (req, res) => {
     // Get attendance data for the last 7 days
     const query = `
         SELECT 
@@ -263,15 +241,12 @@ router.get('/api/attendance-chart-data', requireAuth, async (req, res) => {
 });
 
 // Master Karyawan - List
-router.get('/karyawan', requireAuth, async (req, res) => {
+router.get('/karyawan', requireAuth, (req, res) => {
     const query = `
         SELECT k.id, k.nik, k.nama, k.id_jabatan, k.work_schedule_id, 
                j.nama_jabatan as jabatan, 
                jk.nama as jadwal_kerja,
-               k.is_activated, k.foto_referensi, k.profile_picture, k.created_at,
-               (SELECT photo_path FROM karyawan_face_reference 
-                WHERE id_karyawan = k.id AND is_active = TRUE 
-                ORDER BY enrollment_date DESC LIMIT 1) as trained_photo
+               k.is_activated, k.foto_referensi, k.created_at 
         FROM karyawan k 
         LEFT JOIN jabatan j ON k.id_jabatan = j.id 
         LEFT JOIN jadwal_kerja jk ON k.work_schedule_id = jk.id
@@ -301,9 +276,9 @@ router.get('/karyawan', requireAuth, async (req, res) => {
 });
 
 // Master Karyawan - Add Form
-router.get('/karyawan/add', requireAuth, async (req, res) => {
+router.get('/karyawan/add', requireAuth, (req, res) => {
     // Get jabatan list
-    const jabatanQuery = 'SELECT id, nama_jabatan, deskripsi FROM jabatan ORDER BY nama_jabatan';
+    const jabatanQuery = 'SELECT id, nama_jabatan, deskripsi FROM jabatan WHERE is_active = TRUE ORDER BY nama_jabatan';
     // Get work schedules
     const scheduleQuery = 'SELECT id, nama, jam_masuk, jam_keluar FROM jadwal_kerja WHERE is_active = TRUE ORDER BY jam_masuk';
     
@@ -343,7 +318,7 @@ router.get('/karyawan/add', requireAuth, async (req, res) => {
 });
 
 // Master Karyawan - Add Process
-router.post('/karyawan/add', requireAuth, async (req, res) => {
+router.post('/karyawan/add', requireAuth, (req, res) => {
     upload.single('foto_referensi')(req, res, async function(err) {
         if (err instanceof multer.MulterError) {
             // Multer error (file size, etc)
@@ -427,7 +402,7 @@ router.post('/karyawan/add', requireAuth, async (req, res) => {
 });
 
 // Master Karyawan - Delete
-router.post('/karyawan/delete/:id', requireAuth, async (req, res) => {
+router.post('/karyawan/delete/:id', requireAuth, (req, res) => {
     const { id } = req.params;
     
     const query = 'DELETE FROM karyawan WHERE id = ?';
@@ -443,7 +418,7 @@ router.post('/karyawan/delete/:id', requireAuth, async (req, res) => {
 });
 
 // Master Karyawan - Update (API)
-router.post('/karyawan/update', requireAuth, async (req, res) => {
+router.post('/karyawan/update', requireAuth, (req, res) => {
     const { id, nik, nama, id_jabatan, work_schedule_id } = req.body;
     
     if (!id || !nik || !nama || !id_jabatan) {
@@ -476,69 +451,35 @@ router.post('/karyawan/update', requireAuth, async (req, res) => {
 });
 
 // Master Karyawan - Reset (API)
-router.post('/karyawan/reset', requireAuth, async (req, res) => {
+router.post('/karyawan/reset', requireAuth, (req, res) => {
     const { id } = req.body;
     
     if (!id) {
         return res.json({ success: false, message: 'ID karyawan harus diisi' });
     }
     
-    try {
-        // Ambil data karyawan dulu untuk mendapatkan path foto
-        const getQuery = 'SELECT foto_referensi FROM karyawan WHERE id = ?';
-        const karyawan = await db.query(getQuery, [id]);
-        
-        if (!karyawan || karyawan.length === 0) {
+    // Reset karyawan: hapus foto referensi dan face recognition data, set is_activated = 0
+    // Data absensi tetap tersimpan
+    const query = 'UPDATE karyawan SET foto_referensi = NULL, face_enrollment_data = NULL, is_activated = 0 WHERE id = ?';
+    
+    db.query(query, [id], (err, results) => {
+        if (err) {
+            return res.json({ success: false, message: 'Gagal mereset karyawan' });
+        }
+
+        if (results.affectedRows === 0) {
             return res.json({ success: false, message: 'Karyawan tidak ditemukan' });
         }
-        
-        const fotoPath = karyawan[0].foto_referensi;
-        
-        // Hapus file foto fisik jika ada
-        if (fotoPath) {
-            // Coba beberapa kemungkinan path
-            const possiblePaths = [
-                path.join(__dirname, '..', 'public', fotoPath), // Jika path lengkap dari public
-                path.join(__dirname, '..', 'public', 'uploads', 'karyawan', fotoPath), // Jika hanya nama file
-                path.join(__dirname, '..', 'public', 'uploads', 'profiles', fotoPath) // Jika di folder profiles
-            ];
-            
-            let deleted = false;
-            for (const fullPath of possiblePaths) {
-                if (fs.existsSync(fullPath)) {
-                    try {
-                        fs.unlinkSync(fullPath);
-                        console.log(`✅ Foto berhasil dihapus: ${fullPath}`);
-                        deleted = true;
-                        break;
-                    } catch (err) {
-                        console.error(`❌ Gagal menghapus foto: ${err.message}`);
-                    }
-                }
-            }
-            
-            if (!deleted) {
-                console.log(`⚠️ File foto tidak ditemukan: ${fotoPath}`);
-            }
-        }
-        
-        // Reset karyawan: hapus foto referensi dan face recognition data, set is_activated = 0
-        // Data absensi tetap tersimpan
-        const updateQuery = 'UPDATE karyawan SET foto_referensi = NULL, face_enrollment_data = NULL, is_activated = 0 WHERE id = ?';
-        await db.query(updateQuery, [id]);
-        
+
         res.json({ 
             success: true, 
             message: 'Karyawan berhasil direset. Foto referensi dan data face recognition telah dihapus. Karyawan dapat melakukan aktivasi ulang di aplikasi Android.' 
         });
-    } catch (err) {
-        console.error('Error reset karyawan:', err);
-        return res.json({ success: false, message: 'Gagal mereset karyawan: ' + err.message });
-    }
+    });
 });
 
 // Laporan Absensi
-router.get('/laporan', requireAuth, async (req, res) => {
+router.get('/laporan', requireAuth, (req, res) => {
     const { tanggal, filterType, startDate, endDate, month, year } = req.query;
     let whereClause = '';
     let queryParams = [];
@@ -566,7 +507,6 @@ router.get('/laporan', requireAuth, async (req, res) => {
             p.id_karyawan,
             k.nik,
             k.nama,
-            k.profile_picture,
             j.nama_jabatan as jabatan,
             p.tanggal,
             p.jam_masuk,
@@ -731,7 +671,7 @@ router.get('/laporan/export', requireAuth, async (req, res) => {
 });
 
 // Setting Lokasi
-router.get('/setting', requireAuth, async (req, res) => {
+router.get('/setting', requireAuth, (req, res) => {
     const query = 'SELECT * FROM pengaturan LIMIT 1';
     
     db.query(query, (err, results) => {
@@ -759,7 +699,7 @@ router.get('/setting', requireAuth, async (req, res) => {
 });
 
 // Setting Lokasi - Update
-router.post('/setting', requireAuth, async (req, res) => {
+router.post('/setting', requireAuth, (req, res) => {
     const { lat_kantor, long_kantor, radius_meter } = req.body;
     
     if (!lat_kantor || !long_kantor || !radius_meter) {
@@ -780,7 +720,7 @@ router.post('/setting', requireAuth, async (req, res) => {
 });
 
 // Logout
-router.post('/logout', async (req, res) => {
+router.post('/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
             console.error('Logout error:', err);
@@ -792,7 +732,7 @@ router.post('/logout', async (req, res) => {
 // ===== WORK SCHEDULE ROUTES =====
 
 // Work Schedule - List
-router.get('/work-schedule', requireAuth, async (req, res) => {
+router.get('/work-schedule', requireAuth, (req, res) => {
     const query = `
         SELECT ws.*, 
                COUNT(k.id) as employee_count
@@ -802,48 +742,39 @@ router.get('/work-schedule', requireAuth, async (req, res) => {
         ORDER BY ws.created_at DESC
     `;
     
-    try {
-        console.log('Fetching work schedules...');
-        const results = await db.query(query);
-        console.log(`Found ${results.length} schedules`);
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Work schedule list error:', err);
+            return res.render('admin/work-schedule/index', { 
+                title: 'Jadwal Kerja - Fleur Atelier',
+                admin: req.session.admin,
+                schedules: [],
+                success: req.flash('success'),
+                error: req.flash('error')
+            });
+        }
         
         res.render('admin/work-schedule/index', { 
             title: 'Jadwal Kerja - Fleur Atelier',
             admin: req.session.admin,
-            currentPage: 'work-schedule',
             schedules: results,
-            messages: {
-                success: req.flash('success'),
-                error: req.flash('error')
-            }
+            success: req.flash('success'),
+            error: req.flash('error')
         });
-    } catch (err) {
-        console.error('Work schedule list error:', err);
-        res.render('admin/work-schedule/index', { 
-            title: 'Jadwal Kerja - Fleur Atelier',
-            admin: req.session.admin,
-            currentPage: 'work-schedule',
-            schedules: [],
-            messages: {
-                success: req.flash('success'),
-                error: req.flash('error')
-            }
-        });
-    }
+    });
 });
 
 // Work Schedule - Add Form
-router.get('/work-schedule/add', requireAuth, async (req, res) => {
+router.get('/work-schedule/add', requireAuth, (req, res) => {
     res.render('admin/work-schedule/add', { 
         title: 'Tambah Jadwal Kerja - Fleur Atelier',
         admin: req.session.admin,
-        currentPage: 'work-schedule',
         error: req.flash('error')
     });
 });
 
 // Work Schedule - Add Process
-router.post('/work-schedule/add', requireAuth, async (req, res) => {
+router.post('/work-schedule/add', requireAuth, (req, res) => {
     const { name, start_time, end_time, clock_in_start, clock_in_end, clock_out_start, clock_out_end, work_days } = req.body;
     
     if (!name || !start_time || !end_time) {
@@ -851,123 +782,55 @@ router.post('/work-schedule/add', requireAuth, async (req, res) => {
         return res.redirect('/admin/work-schedule/add');
     }
 
-    try {
-        const workDaysArray = Array.isArray(work_days) ? work_days : [work_days].filter(Boolean);
-        const workDaysJson = JSON.stringify(workDaysArray);
+    const workDaysArray = Array.isArray(work_days) ? work_days : [work_days].filter(Boolean);
+    const workDaysJson = JSON.stringify(workDaysArray);
 
-        const query = `
-            INSERT INTO jadwal_kerja (nama, jam_masuk, jam_keluar, batas_absen_masuk_awal, batas_absen_masuk_akhir, batas_absen_keluar_awal, batas_absen_keluar_akhir, hari_kerja) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        
-        await db.query(query, [name, start_time, end_time, clock_in_start, clock_in_end, clock_out_start, clock_out_end, workDaysJson]);
+    const query = `
+        INSERT INTO jadwal_kerja (nama, jam_masuk, jam_keluar, batas_absen_masuk_awal, batas_absen_masuk_akhir, batas_absen_keluar_awal, batas_absen_keluar_akhir, hari_kerja) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    
+    db.query(query, [name, start_time, end_time, clock_in_start, clock_in_end, clock_out_start, clock_out_end, workDaysJson], (err, results) => {
+        if (err) {
+            console.error('Add work schedule error:', err);
+            req.flash('error', 'Gagal menambah jadwal kerja');
+            return res.redirect('/admin/work-schedule/add');
+        }
 
         req.flash('success', 'Jadwal kerja berhasil ditambahkan');
         res.redirect('/admin/work-schedule');
-    } catch (err) {
-        console.error('Add work schedule error:', err);
-        req.flash('error', 'Gagal menambah jadwal kerja');
-        return res.redirect('/admin/work-schedule/add');
-    }
-});
-
-// Work Schedule - Show/Detail (with employee assignment)
-router.get('/work-schedule/show/:id', requireAuth, async (req, res) => {
-    const { id } = req.params;
-    
-    try {
-        // Get schedule details
-        const scheduleQuery = 'SELECT * FROM jadwal_kerja WHERE id = ?';
-        const scheduleResults = await db.query(scheduleQuery, [id]);
-        
-        if (!scheduleResults || scheduleResults.length === 0) {
-            req.flash('error', 'Jadwal kerja tidak ditemukan');
-            return res.redirect('/admin/work-schedule');
-        }
-        
-        const schedule = scheduleResults[0];
-        
-        // Get employees assigned to this schedule
-        const assignedQuery = `
-            SELECT k.id, k.nik, k.nama, j.nama_jabatan as jabatan
-            FROM karyawan k
-            LEFT JOIN jabatan j ON k.id_jabatan = j.id
-            WHERE k.work_schedule_id = ?
-            ORDER BY k.nama
-        `;
-        const assignedEmployees = await db.query(assignedQuery, [id]);
-        
-        // Get available employees (not assigned to this schedule)
-        const availableQuery = `
-            SELECT k.id, k.nik, k.nama, j.nama_jabatan as jabatan
-            FROM karyawan k
-            LEFT JOIN jabatan j ON k.id_jabatan = j.id
-            WHERE k.work_schedule_id IS NULL OR k.work_schedule_id != ?
-            ORDER BY k.nama
-        `;
-        const availableEmployees = await db.query(availableQuery, [id]);
-        
-        res.render('admin/work-schedule/show', {
-            title: 'Detail Jadwal Kerja - Fleur Atelier',
-            admin: req.session.admin,
-            currentPage: 'work-schedule',
-            schedule: schedule,
-            assignedEmployees: assignedEmployees,
-            availableEmployees: availableEmployees,
-            messages: {
-                success: req.flash('success'),
-                error: req.flash('error')
-            }
-        });
-    } catch (err) {
-        console.error('Show schedule error:', err);
-        req.flash('error', 'Gagal memuat detail jadwal kerja');
-        return res.redirect('/admin/work-schedule');
-    }
+    });
 });
 
 // Work Schedule - Edit Form
-router.get('/work-schedule/edit/:id', requireAuth, async (req, res) => {
+router.get('/work-schedule/edit/:id', requireAuth, (req, res) => {
     const { id } = req.params;
     
-    try {
-        const query = 'SELECT * FROM jadwal_kerja WHERE id = ?';
-        const results = await db.query(query, [id]);
-        
-        if (!results || results.length === 0) {
-            req.flash('error', 'Jadwal kerja tidak ditemukan');
+    const query = 'SELECT * FROM jadwal_kerja WHERE id = ?';
+    
+    db.query(query, [id], (err, results) => {
+        if (err) {
+            console.error('Work schedule edit error:', err);
+            req.flash('error', 'Gagal memuat data jadwal kerja');
             return res.redirect('/admin/work-schedule');
         }
         
-        // Map database fields to view fields
-        const schedule = {
-            id: results[0].id,
-            name: results[0].nama,
-            start_time: results[0].jam_masuk,
-            end_time: results[0].jam_keluar,
-            clock_in_start: results[0].batas_absen_masuk_awal,
-            clock_in_end: results[0].batas_absen_masuk_akhir,
-            clock_out_start: results[0].batas_absen_keluar_awal,
-            clock_out_end: results[0].batas_absen_keluar_akhir,
-            work_days: results[0].hari_kerja
-        };
+        if (results.length === 0) {
+            req.flash('error', 'Jadwal kerja tidak ditemukan');
+            return res.redirect('/admin/work-schedule');
+        }
         
         res.render('admin/work-schedule/edit', { 
             title: 'Edit Jadwal Kerja - Fleur Atelier',
             admin: req.session.admin,
-            currentPage: 'work-schedule',
-            schedule: schedule,
+            schedule: results[0],
             error: req.flash('error')
         });
-    } catch (err) {
-        console.error('Work schedule edit error:', err);
-        req.flash('error', 'Gagal memuat data jadwal kerja');
-        return res.redirect('/admin/work-schedule');
-    }
+    });
 });
 
 // Work Schedule - Update Process
-router.post('/work-schedule/update', requireAuth, async (req, res) => {
+router.post('/work-schedule/update', requireAuth, (req, res) => {
     const { id, name, start_time, end_time, clock_in_start, clock_in_end, clock_out_start, clock_out_end, work_days } = req.body;
     
     if (!id || !name || !start_time || !end_time) {
@@ -975,17 +838,21 @@ router.post('/work-schedule/update', requireAuth, async (req, res) => {
         return res.redirect(`/admin/work-schedule/edit/${id}`);
     }
 
-    try {
-        const workDaysArray = Array.isArray(work_days) ? work_days : [work_days].filter(Boolean);
-        const workDaysJson = JSON.stringify(workDaysArray);
+    const workDaysArray = Array.isArray(work_days) ? work_days : [work_days].filter(Boolean);
+    const workDaysJson = JSON.stringify(workDaysArray);
 
-        const query = `
-            UPDATE jadwal_kerja 
-            SET nama = ?, jam_masuk = ?, jam_keluar = ?, batas_absen_masuk_awal = ?, batas_absen_masuk_akhir = ?, batas_absen_keluar_awal = ?, batas_absen_keluar_akhir = ?, hari_kerja = ?
-            WHERE id = ?
-        `;
-        
-        const results = await db.query(query, [name, start_time, end_time, clock_in_start, clock_in_end, clock_out_start, clock_out_end, workDaysJson, id]);
+    const query = `
+        UPDATE jadwal_kerja 
+        SET nama = ?, jam_masuk = ?, jam_keluar = ?, batas_absen_masuk_awal = ?, batas_absen_masuk_akhir = ?, batas_absen_keluar_awal = ?, batas_absen_keluar_akhir = ?, hari_kerja = ?
+        WHERE id = ?
+    `;
+    
+    db.query(query, [name, start_time, end_time, clock_in_start, clock_in_end, clock_out_start, clock_out_end, workDaysJson, id], (err, results) => {
+        if (err) {
+            console.error('Update work schedule error:', err);
+            req.flash('error', 'Gagal mengupdate jadwal kerja');
+            return res.redirect(`/admin/work-schedule/edit/${id}`);
+        }
 
         if (results.affectedRows === 0) {
             req.flash('error', 'Jadwal kerja tidak ditemukan');
@@ -994,49 +861,56 @@ router.post('/work-schedule/update', requireAuth, async (req, res) => {
 
         req.flash('success', 'Jadwal kerja berhasil diupdate');
         res.redirect('/admin/work-schedule');
-    } catch (err) {
-        console.error('Update work schedule error:', err);
-        req.flash('error', 'Gagal mengupdate jadwal kerja');
-        return res.redirect(`/admin/work-schedule/edit/${id}`);
-    }
+    });
 });
 
 // Work Schedule - Activate (API)
-router.post('/work-schedule/activate', requireAuth, async (req, res) => {
+router.post('/work-schedule/activate', requireAuth, (req, res) => {
     const { id } = req.body;
     
     if (!id) {
         return res.json({ success: false, message: 'ID jadwal harus diisi' });
     }
 
-    try {
-        // First, deactivate all schedules
-        const deactivateQuery = 'UPDATE jadwal_kerja SET is_active = FALSE';
-        await db.query(deactivateQuery);
+    // First, deactivate all schedules
+    const deactivateQuery = 'UPDATE jadwal_kerja SET is_active = FALSE';
+    
+    db.query(deactivateQuery, (err) => {
+        if (err) {
+            console.error('Deactivate all schedules error:', err);
+            return res.json({ success: false, message: 'Gagal menonaktifkan jadwal lain' });
+        }
 
         // Then activate the selected schedule
         const activateQuery = 'UPDATE jadwal_kerja SET is_active = TRUE WHERE id = ?';
-        const results = await db.query(activateQuery, [id]);
+        
+        db.query(activateQuery, [id], (err, results) => {
+            if (err) {
+                console.error('Activate schedule error:', err);
+                return res.json({ success: false, message: 'Gagal mengaktifkan jadwal' });
+            }
 
-        if (results.affectedRows === 0) {
-            return res.json({ success: false, message: 'Jadwal tidak ditemukan' });
-        }
+            if (results.affectedRows === 0) {
+                return res.json({ success: false, message: 'Jadwal tidak ditemukan' });
+            }
 
-        res.json({ success: true, message: 'Jadwal berhasil diaktifkan' });
-    } catch (err) {
-        console.error('Activate schedule error:', err);
-        return res.json({ success: false, message: 'Gagal mengaktifkan jadwal' });
-    }
+            res.json({ success: true, message: 'Jadwal berhasil diaktifkan' });
+        });
+    });
 });
 
 // Work Schedule - Delete
-router.post('/work-schedule/delete/:id', requireAuth, async (req, res) => {
+router.post('/work-schedule/delete/:id', requireAuth, (req, res) => {
     const { id } = req.params;
     
-    try {
-        // Check if schedule is being used by any employee
-        const checkQuery = 'SELECT COUNT(*) as count FROM karyawan WHERE work_schedule_id = ?';
-        const checkResults = await db.query(checkQuery, [id]);
+    // Check if schedule is being used by any employee
+    const checkQuery = 'SELECT COUNT(*) as count FROM karyawan WHERE work_schedule_id = ?';
+    
+    db.query(checkQuery, [id], (err, checkResults) => {
+        if (err) {
+            req.flash('error', 'Gagal memeriksa penggunaan jadwal kerja');
+            return res.redirect('/admin/work-schedule');
+        }
 
         if (checkResults[0].count > 0) {
             req.flash('error', 'Tidak dapat menghapus jadwal kerja yang sedang digunakan oleh karyawan');
@@ -1045,112 +919,61 @@ router.post('/work-schedule/delete/:id', requireAuth, async (req, res) => {
 
         // Safe to delete
         const deleteQuery = 'DELETE FROM jadwal_kerja WHERE id = ?';
-        await db.query(deleteQuery, [id]);
         
-        req.flash('success', 'Jadwal kerja berhasil dihapus');
-        res.redirect('/admin/work-schedule');
-    } catch (err) {
-        console.error('Delete schedule error:', err);
-        req.flash('error', 'Gagal menghapus jadwal kerja');
-        res.redirect('/admin/work-schedule');
-    }
-});
-
-// Work Schedule - Assign Employee
-router.post('/work-schedule/:id/assign', requireAuth, async (req, res) => {
-    const { id } = req.params;
-    const { employee_id } = req.body;
-    
-    if (!employee_id) {
-        req.flash('error', 'Pilih karyawan yang akan di-assign');
-        return res.redirect(`/admin/work-schedule/show/${id}`);
-    }
-    
-    try {
-        // Update employee's work_schedule_id
-        const updateQuery = 'UPDATE karyawan SET work_schedule_id = ? WHERE id = ?';
-        const results = await db.query(updateQuery, [id, employee_id]);
-        
-        if (results.affectedRows === 0) {
-            req.flash('error', 'Karyawan tidak ditemukan');
-            return res.redirect(`/admin/work-schedule/show/${id}`);
-        }
-        
-        req.flash('success', 'Karyawan berhasil di-assign ke jadwal kerja');
-        res.redirect(`/admin/work-schedule/show/${id}`);
-    } catch (err) {
-        console.error('Assign employee error:', err);
-        req.flash('error', 'Gagal assign karyawan');
-        res.redirect(`/admin/work-schedule/show/${id}`);
-    }
-});
-
-// Work Schedule - Unassign Employee
-router.post('/work-schedule/:id/unassign', requireAuth, async (req, res) => {
-    const { id } = req.params;
-    const { employee_id } = req.body;
-    
-    if (!employee_id) {
-        req.flash('error', 'ID karyawan tidak valid');
-        return res.redirect(`/admin/work-schedule/show/${id}`);
-    }
-    
-    try {
-        // Set employee's work_schedule_id to NULL
-        const updateQuery = 'UPDATE karyawan SET work_schedule_id = NULL WHERE id = ? AND work_schedule_id = ?';
-        const results = await db.query(updateQuery, [employee_id, id]);
-        
-        if (results.affectedRows === 0) {
-            req.flash('error', 'Karyawan tidak ditemukan atau tidak di-assign ke jadwal ini');
-            return res.redirect(`/admin/work-schedule/show/${id}`);
-        }
-        
-        req.flash('success', 'Karyawan berhasil di-unassign dari jadwal kerja');
-        res.redirect(`/admin/work-schedule/show/${id}`);
-    } catch (err) {
-        console.error('Unassign employee error:', err);
-        req.flash('error', 'Gagal unassign karyawan');
-        res.redirect(`/admin/work-schedule/show/${id}`);
-    }
+        db.query(deleteQuery, [id], (err, results) => {
+            if (err) {
+                req.flash('error', 'Gagal menghapus jadwal kerja');
+            } else {
+                req.flash('success', 'Jadwal kerja berhasil dihapus');
+            }
+            res.redirect('/admin/work-schedule');
+        });
+    });
 });
 
 // ===== JABATAN CRUD ROUTES =====
 
 // Get jabatan list (API)
-router.get('/jabatan/list', requireAuth, async (req, res) => {
-    try {
-        const query = 'SELECT id, nama_jabatan, deskripsi FROM jabatan ORDER BY nama_jabatan';
-        const results = await db.query(query);
+router.get('/jabatan/list', requireAuth, (req, res) => {
+    const query = 'SELECT id, nama_jabatan, deskripsi FROM jabatan WHERE is_active = TRUE ORDER BY nama_jabatan';
+    
+    db.query(query, (err, results) => {
+        if (err) {
+            return res.json({ success: false, message: 'Database error' });
+        }
         res.json({ success: true, data: results });
-    } catch (err) {
-        console.error('Get jabatan list error:', err);
-        return res.json({ success: false, message: 'Database error' });
-    }
+    });
 });
 
 // Get schedules list (API)
-router.get('/schedules/list', requireAuth, async (req, res) => {
-    try {
-        const query = 'SELECT id, nama, jam_masuk, jam_keluar FROM jadwal_kerja WHERE is_active = TRUE ORDER BY jam_masuk';
-        const [results] = await db.query(query);
+router.get('/schedules/list', requireAuth, (req, res) => {
+    const query = 'SELECT id, nama, jam_masuk, jam_keluar FROM jadwal_kerja WHERE is_active = TRUE ORDER BY jam_masuk';
+    
+    db.query(query, (err, results) => {
+        if (err) {
+            return res.json({ success: false, message: 'Database error' });
+        }
         res.json({ success: true, data: results });
-    } catch (err) {
-        console.error('Get schedules list error:', err);
-        return res.json({ success: false, message: 'Database error' });
-    }
+    });
 });
 
 // Add new jabatan (API)
-router.post('/jabatan/add', requireAuth, async (req, res) => {
+router.post('/jabatan/add', requireAuth, (req, res) => {
     const { nama_jabatan, deskripsi } = req.body;
     
     if (!nama_jabatan || nama_jabatan.trim() === '') {
         return res.json({ success: false, message: 'Nama jabatan harus diisi' });
     }
 
-    try {
-        const query = 'INSERT INTO jabatan (nama_jabatan, deskripsi) VALUES (?, ?)';
-        const [results] = await db.query(query, [nama_jabatan.trim(), deskripsi || null]);
+    const query = 'INSERT INTO jabatan (nama_jabatan, deskripsi) VALUES (?, ?)';
+    
+    db.query(query, [nama_jabatan.trim(), deskripsi || null], (err, results) => {
+        if (err) {
+            if (err.code === 'ER_DUP_ENTRY') {
+                return res.json({ success: false, message: 'Nama jabatan sudah ada' });
+            }
+            return res.json({ success: false, message: 'Gagal menambah jabatan' });
+        }
 
         res.json({ 
             success: true, 
@@ -1161,17 +984,11 @@ router.post('/jabatan/add', requireAuth, async (req, res) => {
                 deskripsi: deskripsi || null
             }
         });
-    } catch (err) {
-        console.error('Add jabatan error:', err);
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.json({ success: false, message: 'Nama jabatan sudah ada' });
-        }
-        return res.json({ success: false, message: 'Gagal menambah jabatan' });
-    }
+    });
 });
 
 // Update jabatan (API)
-router.post('/jabatan/update', requireAuth, async (req, res) => {
+router.post('/jabatan/update', requireAuth, (req, res) => {
     const { id, nama_jabatan, deskripsi } = req.body;
     
     if (!id || !nama_jabatan || nama_jabatan.trim() === '') {
@@ -1197,7 +1014,7 @@ router.post('/jabatan/update', requireAuth, async (req, res) => {
 });
 
 // Delete jabatan (API)
-router.post('/jabatan/delete', requireAuth, async (req, res) => {
+router.post('/jabatan/delete', requireAuth, (req, res) => {
     const { id } = req.body;
     
     if (!id) {
@@ -1237,7 +1054,7 @@ router.post('/jabatan/delete', requireAuth, async (req, res) => {
 });
 
 // Face Recognition Testing Page
-router.get('/face-test', requireAuth, async (req, res) => {
+router.get('/face-test', requireAuth, (req, res) => {
     res.render('admin/face-test', { 
         title: 'Face Recognition Testing - Fleur Atelier',
         admin: req.session.admin,
@@ -1246,7 +1063,7 @@ router.get('/face-test', requireAuth, async (req, res) => {
 });
 
 // API: Get employee list for testing
-router.get('/api/karyawan/list', requireAuth, async (req, res) => {
+router.get('/api/karyawan/list', requireAuth, (req, res) => {
     const query = `
         SELECT k.id, k.nik, k.nama, k.email, k.phone, 
                j.nama_jabatan,
@@ -1274,7 +1091,7 @@ router.get('/api/karyawan/list', requireAuth, async (req, res) => {
 });
 
 // API: Get employee face reference
-router.get('/api/karyawan/:id/face-reference', requireAuth, async (req, res) => {
+router.get('/api/karyawan/:id/face-reference', requireAuth, (req, res) => {
     const { id } = req.params;
     
     const query = `
@@ -1299,7 +1116,7 @@ router.get('/api/karyawan/:id/face-reference', requireAuth, async (req, res) => 
 });
 
 // API: Generate test token for employee
-router.post('/api/karyawan/generate-test-token', requireAuth, async (req, res) => {
+router.post('/api/karyawan/generate-test-token', requireAuth, (req, res) => {
     const { employeeId } = req.body;
     
     if (!employeeId) {
@@ -1344,7 +1161,7 @@ router.post('/api/karyawan/generate-test-token', requireAuth, async (req, res) =
 });
 
 // API: Upload test reference (Admin only - no JWT required)
-router.post('/api/test/upload-reference', requireAuth, async (req, res) => {
+router.post('/api/test/upload-reference', requireAuth, (req, res) => {
     testUpload.single('reference')(req, res, async function(err) {
         if (err instanceof multer.MulterError) {
             console.error('Multer error:', err);
@@ -1438,7 +1255,7 @@ router.post('/api/test/upload-reference', requireAuth, async (req, res) => {
 });
 
 // API: Test face matching (Admin only - no JWT required)
-router.post('/api/test/match-face', requireAuth, async (req, res) => {
+router.post('/api/test/match-face', requireAuth, (req, res) => {
     testUpload.single('photo')(req, res, async function(err) {
         if (err instanceof multer.MulterError) {
             console.error('Multer error:', err);

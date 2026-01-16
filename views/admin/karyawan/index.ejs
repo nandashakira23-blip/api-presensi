@@ -157,11 +157,30 @@
                                     <div class="flex items-start justify-between">
                                         <div class="flex-1">
                                             <div class="flex items-center mb-3">
-                                                <% if (k.foto_referensi) { %>
-                                                    <img src="/<%= k.foto_referensi %>" alt="Foto <%= k.nama %>" 
+                                                <% 
+                                                // Prioritas foto: trained_photo > foto_referensi > profile_picture > default
+                                                let photoUrl = null;
+                                                if (k.trained_photo) {
+                                                    // trained_photo: public\uploads\karyawan\... 
+                                                    // Hapus 'public' karena Express sudah serve folder public
+                                                    photoUrl = '/' + k.trained_photo.replace(/\\/g, '/').replace(/^public\//, '');
+                                                } else if (k.foto_referensi) {
+                                                    // foto_referensi hanya filename, perlu tambah path
+                                                    if (k.foto_referensi.startsWith('uploads/')) {
+                                                        photoUrl = '/' + k.foto_referensi;
+                                                    } else {
+                                                        photoUrl = '/uploads/karyawan/' + k.foto_referensi;
+                                                    }
+                                                } else if (k.profile_picture) {
+                                                    // profile_picture: uploads/profiles/...
+                                                    photoUrl = '/' + k.profile_picture;
+                                                }
+                                                %>
+                                                <% if (photoUrl) { %>
+                                                    <img src="<%= photoUrl %>" alt="Foto <%= k.nama %>" 
                                                          onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'w-12 h-12 rounded-full bg-brown-700 flex items-center justify-center border-2 border-brown-600/50\'><i class=\'fas fa-user text-brown-300\'></i></div>';"
                                                          class="w-12 h-12 rounded-full object-cover mr-3 border-2 border-brown-600/50 cursor-pointer"
-                                                         onclick="showImage('/<%= k.foto_referensi %>')">
+                                                         onclick="showImage('<%= photoUrl %>')">
                                                 <% } else { %>
                                                     <div class="w-12 h-12 rounded-full bg-brown-700 flex items-center justify-center mr-3 border-2 border-brown-600/50">
                                                         <i class="fas fa-user text-brown-300"></i>
@@ -260,11 +279,28 @@
                                                 <% } %>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
-                                                <% if (k.foto_referensi) { %>
-                                                    <img src="/<%= k.foto_referensi %>" alt="Foto <%= k.nama %>" 
-                                                         onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'w-10 h-10 rounded-full bg-brown-700 flex items-center justify-center border-2 border-brown-600/50\'><i class=\'fas fa-user text-brown-300 text-sm\'></i></div>';"
+                                                <% 
+                                                let photoUrl = null;
+                                                if (k.trained_photo) {
+                                                    photoUrl = '/' + k.trained_photo.replace(/\\/g, '/').replace(/^public\//, '');
+                                                } else if (k.foto_referensi) {
+                                                    if (k.foto_referensi.startsWith('uploads/')) {
+                                                        photoUrl = '/' + k.foto_referensi;
+                                                    } else {
+                                                        photoUrl = '/uploads/karyawan/' + k.foto_referensi;
+                                                    }
+                                                } else if (k.profile_picture) {
+                                                    photoUrl = '/' + k.profile_picture;
+                                                }
+                                                %>
+                                                <% if (photoUrl) { %>
+                                                    <img src="<%= photoUrl %>" alt="<%= k.nama %>" 
+                                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
                                                          class="w-10 h-10 rounded-full object-cover cursor-pointer border-2 border-brown-600/50 hover:border-brown-400 transition duration-200"
-                                                         onclick="showImage('/<%= k.foto_referensi %>')">
+                                                         onclick="showImage('<%= photoUrl %>')">
+                                                    <div class="w-10 h-10 rounded-full bg-brown-700 flex items-center justify-center border-2 border-brown-600/50" style="display:none;">
+                                                        <i class="fas fa-user text-brown-300 text-sm"></i>
+                                                    </div>
                                                 <% } else { %>
                                                     <div class="w-10 h-10 rounded-full bg-brown-700 flex items-center justify-center border-2 border-brown-600/50">
                                                         <i class="fas fa-user text-brown-300 text-sm"></i>

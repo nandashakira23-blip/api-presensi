@@ -186,16 +186,31 @@
                                 </p>
                             </div>
 
-                            <!-- Geolocation Button -->
-                            <div class="flex flex-col sm:flex-row gap-3">
+                            <!-- Action Buttons -->
+                            <div class="flex flex-col gap-3">
                                 <button type="button" onclick="getCurrentLocation()" 
-                                        class="flex-1 bg-green-600 hover:bg-green-500 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg">
+                                        class="w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg">
                                     <i class="fas fa-location-arrow mr-2"></i>Gunakan Lokasi Saat Ini
                                 </button>
                                 <button type="submit" 
-                                        class="flex-1 bg-brown-600 hover:bg-brown-500 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg">
+                                        class="w-full bg-brown-600 hover:bg-brown-500 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg">
                                     <i class="fas fa-save mr-2"></i>Simpan Pengaturan
                                 </button>
+                            </div>
+                            
+                            <div class="bg-blue-900/30 border border-blue-600/50 rounded-lg p-4">
+                                <div class="flex items-start space-x-3">
+                                    <i class="fas fa-info-circle text-blue-400 mt-1"></i>
+                                    <div class="text-sm text-blue-200">
+                                        <strong>Cara Update Lokasi:</strong>
+                                        <ul class="mt-2 space-y-1 list-disc list-inside">
+                                            <li>Klik di peta untuk set lokasi baru</li>
+                                            <li>Atau drag marker merah ke posisi yang diinginkan</li>
+                                            <li>Koordinat akan otomatis update</li>
+                                            <li>Klik "Simpan Pengaturan" untuk menyimpan</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -208,8 +223,26 @@
                         </h3>
                         
                         <div class="space-y-4">
+                            <!-- Search Location -->
+                            <div class="relative">
+                                <label for="search-location" class="block text-sm font-semibold text-brown-300 mb-2">
+                                    <i class="fas fa-search mr-2"></i>Cari Lokasi
+                                </label>
+                                <input type="text" id="search-location" 
+                                       class="w-full px-4 py-3 pl-10 bg-dark-700 border border-brown-600/50 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-400 transition duration-200 text-white placeholder-brown-400"
+                                       placeholder="Cari alamat, nama tempat, atau landmark...">
+                                <i class="fas fa-search absolute left-3 top-12 text-brown-400"></i>
+                            </div>
+                            
                             <!-- Interactive Map -->
                             <div id="map" class="bg-dark-600 rounded-lg h-64 sm:h-80 lg:h-96 border border-brown-600/50 shadow-inner"></div>
+                            
+                            <!-- Quick Update Button -->
+                            <button type="button" onclick="quickUpdateLocation()" 
+                                    class="w-full bg-gradient-to-r from-brown-600 to-brown-500 hover:from-brown-500 hover:to-brown-400 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
+                                <i class="fas fa-map-marked-alt mr-2"></i>Update Lokasi dari Peta
+                                <div class="text-xs mt-1 opacity-90">Klik/Drag marker di peta, lalu klik tombol ini</div>
+                            </button>
                             
                             <!-- Map Info -->
                             <div class="bg-brown-800/50 p-4 rounded-lg border border-brown-600/50 backdrop-blur-sm">
@@ -287,7 +320,7 @@
     </script>
     
     <script async defer 
-        src="https://maps.googleapis.com/maps/api/js?key=<%= GOOGLE_MAPS_API_KEY %>&callback=initMap"
+        src="https://maps.googleapis.com/maps/api/js?key=<%= GOOGLE_MAPS_API_KEY %>&libraries=places&callback=initMap"
         onerror="handleMapLoadError()">
     </script>
 
@@ -361,6 +394,34 @@
 
                 // Create radius circle
                 createCircle(center, currentRadius);
+
+                // Initialize Places Autocomplete
+                const searchInput = document.getElementById('search-location');
+                const autocomplete = new google.maps.places.Autocomplete(searchInput, {
+                    fields: ['geometry', 'name', 'formatted_address'],
+                    componentRestrictions: { country: 'id' } // Restrict to Indonesia
+                });
+
+                // When user selects a place from autocomplete
+                autocomplete.addListener('place_changed', function() {
+                    const place = autocomplete.getPlace();
+                    
+                    if (!place.geometry || !place.geometry.location) {
+                        alert('Lokasi tidak ditemukan. Coba kata kunci lain.');
+                        return;
+                    }
+
+                    const location = {
+                        lat: place.geometry.location.lat(),
+                        lng: place.geometry.location.lng()
+                    };
+
+                    // Move marker and map to selected location
+                    setMarkerAndCircle(location);
+                    map.setZoom(17);
+                    
+                    console.log('Location selected:', place.name, location);
+                });
 
                 // Event listener for marker drag
                 marker.addListener('dragend', function() {
@@ -490,7 +551,7 @@
                             lng: position.coords.longitude
                         };
                         setMarkerAndCircle(userLocation);
-                        alert('Lokasi berhasil dideteksi!');
+                        alert('Lokasi berhasil dideteksi! Klik "Update Lokasi dari Peta" untuk menyimpan.');
                     },
                     function(error) {
                         alert('Gagal mendapatkan lokasi: ' + error.message);
@@ -498,6 +559,24 @@
                 );
             } else {
                 alert('Browser tidak mendukung geolocation');
+            }
+        }
+
+        // Quick update location - submit form with current map coordinates
+        function quickUpdateLocation() {
+            const lat = document.getElementById('lat_kantor').value;
+            const lng = document.getElementById('long_kantor').value;
+            const radius = document.getElementById('radius_meter').value;
+            
+            if (!lat || !lng || !radius) {
+                alert('Koordinat atau radius tidak valid');
+                return;
+            }
+            
+            // Confirm before saving
+            if (confirm(`Update lokasi ke:\nLatitude: ${parseFloat(lat).toFixed(8)}\nLongitude: ${parseFloat(lng).toFixed(8)}\nRadius: ${radius} meter\n\nLanjutkan?`)) {
+                // Submit the form
+                document.querySelector('form[action="/admin/setting"]').submit();
             }
         }
 

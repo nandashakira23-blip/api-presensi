@@ -200,7 +200,7 @@ async function compareFaces(referenceFaces, detectedFaces) {
       faceIndex: i,
       isMatch: isMatch,
       similarity: bestSimilarity,
-      confidence: isMatch ? 'Tinggi' : (bestSimilarity > 0.5 ? 'Sedang' : 'Rendah'),
+      confidence: isMatch ? 'high' : (bestSimilarity > 0.5 ? 'medium' : 'low'),
       bestMatch: bestMatch,
       face: detectedFace,
       details: {

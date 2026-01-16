@@ -194,15 +194,16 @@
                                 let workDays = [];
                                 if (schedule.work_days) {
                                     if (Array.isArray(schedule.work_days)) {
-                                        // Already an array (MySQL JSON type)
-                                        workDays = schedule.work_days;
+                                        // Already an array (MySQL JSON type) - convert to lowercase
+                                        workDays = schedule.work_days.map(day => day.toLowerCase());
                                     } else if (typeof schedule.work_days === 'string') {
                                         try {
                                             // Try to parse as JSON
-                                            workDays = JSON.parse(schedule.work_days);
+                                            const parsed = JSON.parse(schedule.work_days);
+                                            workDays = parsed.map(day => day.toLowerCase());
                                         } catch (e) {
-                                            // If not JSON, split by comma
-                                            workDays = schedule.work_days.split(',').map(day => day.trim());
+                                            // If not JSON, split by comma and convert to lowercase
+                                            workDays = schedule.work_days.split(',').map(day => day.trim().toLowerCase());
                                         }
                                     }
                                 }

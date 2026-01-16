@@ -144,13 +144,13 @@ async function compareFacesWithEmbeddings(referenceFaces, detectedFaces) {
     const similarity = bestMatch ? bestMatch.similarity : 0;
     
     // Determine confidence level
-    let confidence = 'Rendah';
+    let confidence = 'low';
     if (bestDistance < strictThreshold) {
-      confidence = 'Sangat Tinggi';
+      confidence = 'high';
     } else if (bestDistance < normalThreshold) {
-      confidence = 'Tinggi';
+      confidence = 'high';
     } else if (bestDistance < looseThreshold) {
-      confidence = 'Sedang';
+      confidence = 'medium';
     }
     
     console.log(`   Best match for face ${i}: distance=${bestDistance.toFixed(3)}, isMatch=${isMatch}, similarity=${(similarity * 100).toFixed(1)}%, confidence=${confidence}`);

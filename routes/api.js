@@ -277,7 +277,7 @@ router.post('/auth/check-nik', async (req, res) => {
         k.id, k.nik, k.nama, k.is_activated, k.foto_referensi,
         COUNT(fr.id) as has_face_reference_table
       FROM karyawan k
-      LEFT JOIN karyawan_face_reference fr ON k.id = fr.karyawan_id AND fr.is_active = TRUE
+      LEFT JOIN karyawan_face_reference fr ON k.id = fr.id_karyawan AND fr.is_active = TRUE
       WHERE k.nik = ?
       GROUP BY k.id
     `, [nik]);
@@ -421,82 +421,16 @@ router.post('/auth/login', async (req, res) => {
 
     const karyawan = rows[0];
 
-    // Check if account is locked
-    if (karyawan.pin_locked_until && new Date() < new Date(karyawan.pin_locked_until)) {
-      return res.status(401).json({
-        success: false,
-        message: 'Account is temporarily locked due to too many failed attempts',
-        code: 'ACCOUNT_LOCKED',
-        lockedUntil: karyawan.pin_locked_until
-      });
-    }
-
-    // For first time login (no PIN set yet)
-    if (!karyawan.pin && !karyawan.is_activated) {
-      const accessToken = generateAccessToken({ 
-        id: karyawan.id, 
-        nik: karyawan.nik,
-        needsActivation: true 
-      });
-      
-      return res.json({
-        success: true,
-        message: 'Account needs activation',
-        data: {
-          accessToken,
-          user: {
-            id: karyawan.id,
-            nik: karyawan.nik,
-            nama: karyawan.nama,
-            is_activated: false,
-            needsActivation: true
-          }
-        }
-      });
-    }
-
     // Verify PIN
     const isPinValid = await bcrypt.compare(pin, karyawan.pin);
     
     if (!isPinValid) {
-      // Increment failed attempts
-      const newAttempts = (karyawan.pin_attempts || 0) + 1;
-      const maxAttempts = 3;
-      
-      if (newAttempts >= maxAttempts) {
-        // Lock account for 30 minutes
-        const lockUntil = new Date(Date.now() + 30 * 60 * 1000);
-        await connection.execute(
-          'UPDATE karyawan SET pin_attempts = ?, pin_locked_until = ? WHERE id = ?',
-          [newAttempts, lockUntil, karyawan.id]
-        );
-        
-        return res.status(401).json({
-          success: false,
-          message: 'Account locked due to too many failed attempts',
-          code: 'ACCOUNT_LOCKED',
-          lockedUntil: lockUntil
-        });
-      } else {
-        await connection.execute(
-          'UPDATE karyawan SET pin_attempts = ? WHERE id = ?',
-          [newAttempts, karyawan.id]
-        );
-        
-        return res.status(401).json({
-          success: false,
-          message: `Invalid PIN. ${maxAttempts - newAttempts} attempts remaining`,
-          code: 'INVALID_PIN',
-          attemptsRemaining: maxAttempts - newAttempts
-        });
-      }
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid PIN',
+        code: 'INVALID_PIN'
+      });
     }
-
-    // Reset failed attempts on successful login
-    await connection.execute(
-      'UPDATE karyawan SET pin_attempts = 0, pin_locked_until = NULL WHERE id = ?',
-      [karyawan.id]
-    );
 
     // Get complete employee data with jabatan
     const [employeeData] = await connection.execute(`
@@ -507,7 +441,7 @@ router.post('/auth/login', async (req, res) => {
         COUNT(fr.id) > 0 as face_enrollment_completed
       FROM karyawan k
       LEFT JOIN jabatan j ON k.id_jabatan = j.id
-      LEFT JOIN karyawan_face_reference fr ON k.id = fr.karyawan_id AND fr.is_active = TRUE
+      LEFT JOIN karyawan_face_reference fr ON k.id = fr.id_karyawan AND fr.is_active = TRUE
       WHERE k.id = ?
       GROUP BY k.id
     `, [karyawan.id]);
@@ -519,10 +453,10 @@ router.post('/auth/login', async (req, res) => {
     if (employee.work_schedule_id) {
       const [scheduleRows] = await connection.execute(`
         SELECT 
-          id, nama as name, jam_masuk as start_time, jam_keluar as end_time,
-          batas_absen_masuk_awal as clock_in_start, batas_absen_masuk_akhir as clock_in_end,
-          batas_absen_keluar_awal as clock_out_start, batas_absen_keluar_akhir as clock_out_end,
-          hari_kerja as work_days, is_active
+          id, nama, jam_masuk, jam_keluar,
+          batas_absen_masuk_awal, batas_absen_masuk_akhir,
+          batas_absen_keluar_awal, batas_absen_keluar_akhir,
+          hari_kerja, is_active
         FROM jadwal_kerja
         WHERE id = ?
       `, [employee.work_schedule_id]);
@@ -739,14 +673,14 @@ router.post('/auth/activate', upload.single('face_photo'), async (req, res) => {
       // 1. Update karyawan with PIN, foto_referensi, and activate
       console.log('Updating karyawan:', karyawan.id);
       await connection.execute(
-        'UPDATE karyawan SET pin = ?, foto_referensi = ?, is_activated = TRUE, pin_attempts = 0 WHERE id = ?',
+        'UPDATE karyawan SET pin = ?, foto_referensi = ?, is_activated = TRUE WHERE id = ?',
         [hashedPin, req.file.filename, karyawan.id]
       );
 
       // 2. Deactivate existing face references
       console.log('Deactivating old face references');
       await connection.execute(
-        'UPDATE karyawan_face_reference SET is_active = FALSE WHERE karyawan_id = ?',
+        'UPDATE karyawan_face_reference SET is_active = FALSE WHERE id_karyawan = ?',
         [karyawan.id]
       );
 
@@ -754,15 +688,12 @@ router.post('/auth/activate', upload.single('face_photo'), async (req, res) => {
       console.log('Saving new face reference');
       await connection.execute(`
         INSERT INTO karyawan_face_reference 
-        (karyawan_id, filename, original_name, file_path, faces_data, faces_count, is_active) 
-        VALUES (?, ?, ?, ?, ?, ?, TRUE)
+        (id_karyawan, face_encoding, photo_path, is_active, enrollment_method) 
+        VALUES (?, ?, ?, TRUE, 'manual')
       `, [
         karyawan.id,
-        req.file.filename,
-        req.file.originalname,
-        req.file.path,
-        JSON.stringify(faces),
-        faces.length
+        JSON.stringify(faces[0]), // Save first face encoding
+        req.file.path
       ]);
       console.log('Face reference saved successfully');
 
@@ -947,9 +878,9 @@ router.get('/auth/profile/:id', authenticateToken, async (req, res) => {
         k.is_activated, k.foto_referensi,
         j.id as jabatan_id, j.nama_jabatan,
         ws.id as schedule_id, ws.nama as schedule_name, 
-        ws.jam_masuk as start_time, ws.jam_keluar as end_time, ws.hari_kerja as work_days,
-        ws.batas_absen_masuk_awal as clock_in_start, ws.batas_absen_masuk_akhir as clock_in_end,
-        ws.batas_absen_keluar_awal as clock_out_start, ws.batas_absen_keluar_akhir as clock_out_end
+        ws.jam_masuk, ws.jam_keluar, ws.hari_kerja,
+        ws.batas_absen_masuk_awal, ws.batas_absen_masuk_akhir,
+        ws.batas_absen_keluar_awal, ws.batas_absen_keluar_akhir
       FROM karyawan k
       LEFT JOIN jabatan j ON k.id_jabatan = j.id
       LEFT JOIN jadwal_kerja ws ON k.work_schedule_id = ws.id
@@ -991,13 +922,13 @@ router.get('/auth/profile/:id', authenticateToken, async (req, res) => {
         work_schedule: employee.schedule_id ? {
           id: employee.schedule_id,
           name: employee.schedule_name,
-          start_time: employee.start_time,
-          end_time: employee.end_time,
-          clock_in_start: employee.clock_in_start,
-          clock_in_end: employee.clock_in_end,
-          clock_out_start: employee.clock_out_start,
-          clock_out_end: employee.clock_out_end,
-          work_days: parseWorkDays(employee.work_days),
+          start_time: employee.jam_masuk,
+          end_time: employee.jam_keluar,
+          clock_in_start: employee.batas_absen_masuk_awal,
+          clock_in_end: employee.batas_absen_masuk_akhir,
+          clock_out_start: employee.batas_absen_keluar_awal,
+          clock_out_end: employee.batas_absen_keluar_akhir,
+          work_days: parseWorkDays(employee.hari_kerja),
           is_active: true
         } : null
       }
@@ -1351,22 +1282,19 @@ router.post('/activation/upload-face', authenticateToken, upload.single('referen
 
     // Deactivate existing reference photos for this employee
     await connection.execute(
-      'UPDATE karyawan_face_reference SET is_active = FALSE WHERE karyawan_id = ?',
+      'UPDATE karyawan_face_reference SET is_active = FALSE WHERE id_karyawan = ?',
       [req.user.id]
     );
 
     // Save new reference photo to database
     const [result] = await connection.execute(`
       INSERT INTO karyawan_face_reference 
-      (karyawan_id, filename, original_name, file_path, faces_data, faces_count, is_active) 
-      VALUES (?, ?, ?, ?, ?, ?, TRUE)
+      (id_karyawan, face_encoding, photo_path, is_active, enrollment_method) 
+      VALUES (?, ?, ?, TRUE, 'manual')
     `, [
       req.user.id,
-      req.file.filename,
-      req.file.originalname,
-      imagePath,
-      JSON.stringify(faces),
-      faces.length
+      JSON.stringify(faces[0]), // Save first face encoding
+      imagePath
     ]);
 
     res.json({
@@ -1491,7 +1419,7 @@ router.post('/activation/set-pin', authenticateToken, async (req, res) => {
 
     // Update PIN in database
     await connection.execute(
-      'UPDATE karyawan SET pin = ?, pin_attempts = 0 WHERE id = ?',
+      'UPDATE karyawan SET pin = ? WHERE id = ?',
       [hashedPin, req.user.id]
     );
 
@@ -1601,7 +1529,7 @@ router.post('/pin/change', authenticateToken, async (req, res) => {
 
     // Update PIN in database
     await connection.execute(
-      'UPDATE karyawan SET pin = ?, pin_attempts = 0 WHERE id = ?',
+      'UPDATE karyawan SET pin = ? WHERE id = ?',
       [hashedNewPin, req.user.id]
     );
 
@@ -1676,7 +1604,7 @@ router.post('/activation/complete', authenticateToken, async (req, res) => {
 
     // Check if face reference is uploaded
     const [faceRows] = await connection.execute(
-      'SELECT id FROM karyawan_face_reference WHERE karyawan_id = ? AND is_active = TRUE',
+      'SELECT id FROM karyawan_face_reference WHERE id_karyawan = ? AND is_active = TRUE',
       [req.user.id]
     );
 
@@ -1727,7 +1655,7 @@ router.post('/activation/complete', authenticateToken, async (req, res) => {
 
 /**
  * @swagger
- * /api/schedule/today/{karyawan_id}:
+ * /api/schedule/today/{id_karyawan}:
  *   get:
  *     tags: [Attendance]
  *     summary: Get jadwal kerja hari ini untuk karyawan
@@ -1735,7 +1663,7 @@ router.post('/activation/complete', authenticateToken, async (req, res) => {
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: karyawan_id
+ *         name: id_karyawan
  *         required: true
  *         schema:
  *           type: integer
@@ -1783,14 +1711,14 @@ router.post('/activation/complete', authenticateToken, async (req, res) => {
  *                           items:
  *                             type: string
  */
-router.get('/schedule/today/:karyawan_id', authenticateToken, async (req, res) => {
+router.get('/schedule/today/:id_karyawan', authenticateToken, async (req, res) => {
   const connection = await getConnection();
   
   try {
-    const { karyawan_id } = req.params;
+    const { id_karyawan } = req.params;
 
     // Verify user can only access their own schedule
-    if (parseInt(karyawan_id) !== req.user.id) {
+    if (parseInt(id_karyawan) !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -1807,7 +1735,7 @@ router.get('/schedule/today/:karyawan_id', authenticateToken, async (req, res) =
       FROM jadwal_kerja ws
       JOIN karyawan k ON k.work_schedule_id = ws.id
       WHERE k.id = ? AND ws.is_active = TRUE
-    `, [karyawan_id]);
+    `, [id_karyawan]);
 
     if (rows.length === 0) {
       return res.json({
@@ -1915,7 +1843,7 @@ router.post('/attendance/validate-face', authenticateToken, upload.single('photo
 
     // Get employee's face reference
     const [faceRows] = await connection.execute(
-      'SELECT * FROM karyawan_face_reference WHERE karyawan_id = ? AND is_active = TRUE',
+      'SELECT * FROM karyawan_face_reference WHERE id_karyawan = ? AND is_active = TRUE',
       [req.user.id]
     );
 
@@ -2167,7 +2095,7 @@ router.post('/attendance/checkin', (req, res, next) => {
     console.log('Step 3: Getting employee face reference...');
     // Get employee's face reference
     const [faceRows] = await connection.execute(
-      'SELECT * FROM karyawan_face_reference WHERE karyawan_id = ? AND is_active = TRUE',
+      'SELECT * FROM karyawan_face_reference WHERE id_karyawan = ? AND is_active = TRUE',
       [req.user.id]
     );
 
@@ -2184,16 +2112,33 @@ router.post('/attendance/checkin', (req, res, next) => {
     }
 
     const faceReference = faceRows[0];
-    console.log('Face reference found:', { id: faceReference.id, faces_count: faceReference.faces_count });
-    console.log('Face reference data type:', typeof faceReference.faces_data);
-    console.log('Face reference data:', faceReference.faces_data);
+    console.log('Face reference found:', { id: faceReference.id });
+    console.log('Face encoding type:', typeof faceReference.face_encoding);
     
-    // Parse faces_data - handle both string and object
+    // Parse face_encoding - handle both string and object
     let referenceFaces;
-    if (typeof faceReference.faces_data === 'string') {
-      referenceFaces = JSON.parse(faceReference.faces_data);
+    if (typeof faceReference.face_encoding === 'string') {
+      try {
+        referenceFaces = JSON.parse(faceReference.face_encoding);
+        // If it's a single face encoding, wrap it in an array
+        if (!Array.isArray(referenceFaces)) {
+          referenceFaces = [referenceFaces];
+        }
+      } catch (e) {
+        console.error('Error parsing face_encoding:', e);
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(500).json({
+          success: false,
+          message: 'Invalid face reference data',
+          code: 'INVALID_FACE_DATA'
+        });
+      }
+    } else if (Array.isArray(faceReference.face_encoding)) {
+      referenceFaces = faceReference.face_encoding;
     } else {
-      referenceFaces = faceReference.faces_data;
+      referenceFaces = [faceReference.face_encoding];
     }
     console.log('Reference faces parsed:', referenceFaces.length, 'faces');
 
@@ -2241,7 +2186,7 @@ router.post('/attendance/checkin', (req, res, next) => {
     // Check if already checked in today
     const today = new Date().toISOString().split('T')[0];
     const [existingRows] = await connection.execute(
-      'SELECT id FROM presensi WHERE id_karyawan = ? AND DATE(waktu) = ? AND attendance_type = "clock_in"',
+      'SELECT id FROM presensi WHERE id_karyawan = ? AND tanggal = ? AND jam_masuk IS NOT NULL',
       [req.user.id, today]
     );
 
@@ -2268,10 +2213,10 @@ router.post('/attendance/checkin', (req, res, next) => {
 
     let clockInStatus = 'on_time';
     let isLate = false;
+    const currentTime = new Date().toTimeString().split(' ')[0]; // Define currentTime here so it's accessible throughout
 
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
-      const currentTime = new Date().toTimeString().split(' ')[0];
       const workDays = parseWorkDays(schedule.hari_kerja);
       const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       
@@ -2323,21 +2268,31 @@ router.post('/attendance/checkin', (req, res, next) => {
     console.log('Clock in status:', clockInStatus, 'isLate:', isLate);
 
     console.log('Step 8: Saving face recognition log...');
+    console.log('DEBUG - bestMatch object:', JSON.stringify(bestMatch, null, 2));
+    console.log('DEBUG - bestMatch.confidence value:', bestMatch.confidence);
+    console.log('DEBUG - bestMatch.confidence type:', typeof bestMatch.confidence);
+    
+    // Ensure confidence is a valid ENUM value
+    let confidenceLevel = bestMatch.confidence;
+    if (!['high', 'medium', 'low'].includes(confidenceLevel)) {
+      console.warn('Invalid confidence level:', confidenceLevel, '- defaulting to medium');
+      confidenceLevel = 'medium';
+    }
+    
     // Save face recognition log
     const [faceLogResult] = await connection.execute(`
       INSERT INTO absensi_face_log 
-      (karyawan_id, reference_id, match_filename, match_file_path, faces_detected, match_results, similarity_score, confidence_level, is_match, absen_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'masuk')
+      (id_karyawan, photo_path, faces_detected, similarity_score, confidence_level, recognition_status, location_lat, location_lng)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       req.user.id,
-      faceReference.id,
-      req.file.filename,
       req.file.path,
       detectedFaces.length,
-      JSON.stringify(matchResults),
       bestMatch.similarity,
-      bestMatch.confidence,
-      true
+      confidenceLevel,
+      'match',
+      latitude,
+      longitude
     ]);
     console.log('Face log saved, ID:', faceLogResult.insertId);
 
@@ -2345,18 +2300,20 @@ router.post('/attendance/checkin', (req, res, next) => {
     // Save attendance record
     const [attendanceResult] = await connection.execute(`
       INSERT INTO presensi 
-      (id_karyawan, attendance_type, lat_absen, long_absen, foto_checkin, status_lokasi, jarak_meter, face_recognition_id, similarity_score, is_late, work_schedule_id)
-      VALUES (?, 'clock_in', ?, ?, ?, 'Dalam Area', ?, ?, ?, ?, ?)
+      (id_karyawan, tanggal, jam_masuk, foto_masuk, lat_masuk, long_masuk, 
+       face_similarity_in, distance_in, status, attendance_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       req.user.id,
+      today,
+      currentTime,
+      faceLogResult.insertId ? `face_log_${faceLogResult.insertId}.jpg` : null,
       latitude,
       longitude,
-      `uploads/karyawan/${req.file.filename}`, // Use full path
-      locationValidation.distance,
-      faceLogResult.insertId,
       bestMatch.similarity,
-      isLate,
-      scheduleRows.length > 0 ? scheduleRows[0].id : null
+      locationValidation.distance,
+      isLate ? 'terlambat' : 'hadir',
+      'regular'
     ]);
     console.log('Attendance saved, ID:', attendanceResult.insertId);
     console.log('=== CHECKIN REQUEST SUCCESS ===');
@@ -2488,7 +2445,7 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
     // Check if already checked out today
     const today = new Date().toISOString().split('T')[0];
     const [existingCheckOut] = await connection.execute(
-      'SELECT id FROM presensi WHERE id_karyawan = ? AND DATE(waktu) = ? AND attendance_type = "clock_out"',
+      'SELECT id FROM presensi WHERE id_karyawan = ? AND tanggal = ? AND jam_keluar IS NOT NULL',
       [req.user.id, today]
     );
 
@@ -2506,7 +2463,7 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
 
     // Check if checked in today
     const [checkInRows] = await connection.execute(
-      'SELECT * FROM presensi WHERE id_karyawan = ? AND DATE(waktu) = ? AND attendance_type = "clock_in"',
+      'SELECT * FROM presensi WHERE id_karyawan = ? AND tanggal = ? AND jam_masuk IS NOT NULL',
       [req.user.id, today]
     );
 
@@ -2554,18 +2511,48 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
 
     // Face recognition validation (same as check in)
     const [faceRows] = await connection.execute(
-      'SELECT * FROM karyawan_face_reference WHERE karyawan_id = ? AND is_active = TRUE',
+      'SELECT * FROM karyawan_face_reference WHERE id_karyawan = ? AND is_active = TRUE',
       [req.user.id]
     );
 
+    if (faceRows.length === 0) {
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Face reference not found. Please register your face first.',
+        code: 'NO_FACE_REFERENCE'
+      });
+    }
+
     const faceReference = faceRows[0];
     
-    // Parse faces_data - handle both string and object
+    // Parse face_encoding - handle both string and object (same as check-in)
     let referenceFaces;
-    if (typeof faceReference.faces_data === 'string') {
-      referenceFaces = JSON.parse(faceReference.faces_data);
+    if (typeof faceReference.face_encoding === 'string') {
+      try {
+        referenceFaces = JSON.parse(faceReference.face_encoding);
+        // If it's a single face encoding, wrap it in an array
+        if (!Array.isArray(referenceFaces)) {
+          referenceFaces = [referenceFaces];
+        }
+      } catch (e) {
+        console.error('Error parsing face_encoding:', e);
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(500).json({
+          success: false,
+          message: 'Invalid face reference data',
+          code: 'INVALID_FACE_DATA'
+        });
+      }
+    } else if (Array.isArray(faceReference.face_encoding)) {
+      referenceFaces = faceReference.face_encoding;
     } else {
-      referenceFaces = faceReference.faces_data;
+      referenceFaces = [faceReference.face_encoding];
     }
     
     const detectedFaces = await detectFaces(req.file.path);
@@ -2598,7 +2585,9 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
     }
 
     // Calculate work duration
-    const checkInTime = new Date(checkInRows[0].waktu);
+    const checkInRow = checkInRows[0];
+    // Combine tanggal and jam_masuk to create a proper datetime
+    const checkInTime = new Date(`${checkInRow.tanggal.toISOString().split('T')[0]}T${checkInRow.jam_masuk}`);
     const checkOutTime = new Date();
     const workDurationMs = checkOutTime - checkInTime;
     const workDurationMinutes = Math.floor(workDurationMs / (1000 * 60));
@@ -2616,10 +2605,10 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
     let clockOutStatus = 'on_time';
     let isEarly = false;
     let overtimeMinutes = 0;
+    const currentTime = new Date().toTimeString().split(' ')[0]; // Define currentTime here so it's accessible throughout
 
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
-      const currentTime = new Date().toTimeString().split(' ')[0];
       const workDays = parseWorkDays(schedule.hari_kerja);
       const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       
@@ -2675,40 +2664,46 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
       }
     }
 
+    // Ensure confidence is a valid ENUM value
+    let confidenceLevel = bestMatch.confidence;
+    if (!['high', 'medium', 'low'].includes(confidenceLevel)) {
+      console.warn('Invalid confidence level:', confidenceLevel, '- defaulting to medium');
+      confidenceLevel = 'medium';
+    }
+
     // Save face recognition log
     const [faceLogResult] = await connection.execute(`
       INSERT INTO absensi_face_log 
-      (karyawan_id, reference_id, match_filename, match_file_path, faces_detected, match_results, similarity_score, confidence_level, is_match, absen_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'keluar')
+      (id_karyawan, photo_path, faces_detected, similarity_score, confidence_level, recognition_status, location_lat, location_lng)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       req.user.id,
-      faceReference.id,
-      req.file.filename,
       req.file.path,
       detectedFaces.length,
-      JSON.stringify(matchResults),
       bestMatch.similarity,
-      bestMatch.confidence,
-      true
+      confidenceLevel,
+      'match',
+      latitude,
+      longitude
     ]);
 
     // Save attendance record
+    const isOvertime = clockOutStatus === 'overtime';
     const [attendanceResult] = await connection.execute(`
-      INSERT INTO presensi 
-      (id_karyawan, attendance_type, lat_absen, long_absen, foto_checkin, status_lokasi, jarak_meter, face_recognition_id, similarity_score, is_early, overtime_minutes, work_duration_minutes, work_schedule_id)
-      VALUES (?, 'clock_out', ?, ?, ?, 'Dalam Area', ?, ?, ?, ?, ?, ?, ?)
+      UPDATE presensi 
+      SET jam_keluar = ?, foto_keluar = ?, lat_keluar = ?, long_keluar = ?,
+          face_similarity_out = ?, distance_out = ?, keterangan = ?
+      WHERE id_karyawan = ? AND tanggal = ? AND jam_keluar IS NULL
     `, [
-      req.user.id,
+      currentTime,
+      faceLogResult.insertId ? `face_log_${faceLogResult.insertId}.jpg` : null,
       latitude,
       longitude,
-      `uploads/karyawan/${req.file.filename}`, // Use full path
-      locationValidation.distance,
-      faceLogResult.insertId,
       bestMatch.similarity,
-      isEarly,
-      overtimeMinutes,
-      workDurationMinutes,
-      scheduleRows.length > 0 ? scheduleRows[0].id : null
+      locationValidation.distance,
+      `Durasi kerja: ${hours} jam ${minutes} menit${isOvertime ? `, Lembur: ${overtimeMinutes} menit` : ''}`,
+      req.user.id,
+      today
     ]);
 
     res.json({
@@ -2728,7 +2723,8 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
         faceMatch: {
           isMatch: bestMatch.isMatch,
           similarity: bestMatch.similarity,
-          confidence: bestMatch.confidence
+          confidence: bestMatch.confidence,
+          facesDetected: detectedFaces.length
         }
       }
     });
@@ -2759,7 +2755,7 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
 
 /**
  * @swagger
- * /api/attendance/status/{karyawan_id}:
+ * /api/attendance/status/{id_karyawan}:
  *   get:
  *     tags: [Attendance]
  *     summary: Get status absensi hari ini
@@ -2767,7 +2763,7 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: karyawan_id
+ *         name: id_karyawan
  *         required: true
  *         schema:
  *           type: integer
@@ -2816,14 +2812,14 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
  *                     canCheckOut:
  *                       type: boolean
  */
-router.get('/attendance/status/:karyawan_id', authenticateToken, async (req, res) => {
+router.get('/attendance/status/:id_karyawan', authenticateToken, async (req, res) => {
   const connection = await getConnection();
   
   try {
-    const { karyawan_id } = req.params;
+    const { id_karyawan } = req.params;
 
     // Verify user can only access their own status
-    if (parseInt(karyawan_id) !== req.user.id) {
+    if (parseInt(id_karyawan) !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -2838,40 +2834,56 @@ router.get('/attendance/status/:karyawan_id', authenticateToken, async (req, res
       SELECT 
         p.*,
         CASE 
-          WHEN p.attendance_type = 'clock_in' AND p.is_late = 1 THEN 'late'
-          WHEN p.attendance_type = 'clock_out' AND p.is_early = 1 THEN 'early'
-          WHEN p.attendance_type = 'clock_out' AND p.overtime_minutes > 0 THEN 'overtime'
+          WHEN p.status = 'terlambat' THEN 'late'
+          WHEN p.jam_keluar IS NOT NULL AND p.jam_keluar < '17:00:00' THEN 'early'
           ELSE 'on_time'
-        END as status
+        END as attendance_status
       FROM presensi p
-      WHERE p.id_karyawan = ? AND DATE(p.waktu) = ?
-      ORDER BY p.waktu ASC
-    `, [karyawan_id, today]);
+      WHERE p.id_karyawan = ? AND p.tanggal = ?
+      ORDER BY p.created_at ASC
+    `, [id_karyawan, today]);
 
-    const checkInRecord = attendanceRows.find(r => r.attendance_type === 'clock_in');
-    const checkOutRecord = attendanceRows.find(r => r.attendance_type === 'clock_out');
+    const checkInRecord = attendanceRows.find(r => r.jam_masuk !== null);
+    const checkOutRecord = attendanceRows.find(r => r.jam_keluar !== null);
+
+    // Helper function to format date properly
+    const formatDate = (dateValue) => {
+      if (!dateValue) return null;
+      try {
+        // If it's already a Date object, convert to ISO string
+        if (dateValue instanceof Date) {
+          return dateValue.toISOString().split('T')[0];
+        }
+        // If it's a string, try to parse it
+        const date = new Date(dateValue);
+        return date.toISOString().split('T')[0];
+      } catch (e) {
+        console.error('Error formatting date:', e);
+        return null;
+      }
+    };
 
     // Calculate work duration
     let workDuration = null;
     let workDurationMinutes = null;
     
     if (checkInRecord && checkOutRecord) {
-      // Both clock in and clock out exist - use stored duration or calculate
-      if (checkOutRecord.work_duration_minutes) {
-        workDurationMinutes = checkOutRecord.work_duration_minutes;
-      } else {
-        const checkInTime = new Date(checkInRecord.waktu);
-        const checkOutTime = new Date(checkOutRecord.waktu);
-        workDurationMinutes = Math.floor((checkOutTime - checkInTime) / (1000 * 60));
-      }
+      // Both clock in and clock out exist - calculate duration
+      const checkInDate = new Date(checkInRecord.tanggal).toISOString().split('T')[0];
+      const checkInDateTime = new Date(`${checkInDate}T${checkInRecord.jam_masuk}`);
+      const checkOutDate = new Date(checkOutRecord.tanggal).toISOString().split('T')[0];
+      const checkOutDateTime = new Date(`${checkOutDate}T${checkOutRecord.jam_keluar}`);
+      workDurationMinutes = Math.floor((checkOutDateTime - checkInDateTime) / (1000 * 60));
+      
       const hours = Math.floor(workDurationMinutes / 60);
       const minutes = workDurationMinutes % 60;
       workDuration = `${hours} jam ${minutes} menit`;
     } else if (checkInRecord && !checkOutRecord) {
       // Only clock in exists - calculate real-time duration
-      const checkInTime = new Date(checkInRecord.waktu);
+      const checkInDate = new Date(checkInRecord.tanggal).toISOString().split('T')[0];
+      const checkInDateTime = new Date(`${checkInDate}T${checkInRecord.jam_masuk}`);
       const now = new Date();
-      workDurationMinutes = Math.floor((now - checkInTime) / (1000 * 60));
+      workDurationMinutes = Math.floor((now - checkInDateTime) / (1000 * 60));
       const hours = Math.floor(workDurationMinutes / 60);
       const minutes = workDurationMinutes % 60;
       workDuration = `${hours} jam ${minutes} menit`;
@@ -2883,7 +2895,7 @@ router.get('/attendance/status/:karyawan_id', authenticateToken, async (req, res
       FROM jadwal_kerja ws
       JOIN karyawan k ON k.work_schedule_id = ws.id
       WHERE k.id = ?
-    `, [karyawan_id]);
+    `, [id_karyawan]);
 
     let canCheckIn = !checkInRecord;
     let canCheckOut = checkInRecord && !checkOutRecord;
@@ -2915,18 +2927,47 @@ router.get('/attendance/status/:karyawan_id', authenticateToken, async (req, res
       success: true,
       data: {
         date: today,
-        has_clocked_in: !!checkInRecord,
-        has_clocked_out: !!checkOutRecord,
-        clock_in_time: checkInRecord ? checkInRecord.waktu : null,
-        clock_out_time: checkOutRecord ? checkOutRecord.waktu : null,
-        work_duration: workDuration,
-        work_duration_minutes: workDurationMinutes,
-        can_clock_in: canCheckIn,
-        can_clock_out: canCheckOut,
-        next_action: !checkInRecord ? 'clock_in' : (!checkOutRecord ? 'clock_out' : 'completed'),
-        work_schedule: null
+        hasCheckedIn: !!checkInRecord,
+        hasCheckedOut: !!checkOutRecord,
+        checkIn: checkInRecord ? {
+          time: `${formatDate(checkInRecord.tanggal)}T${checkInRecord.jam_masuk}`,
+          latitude: checkInRecord.lat_masuk,
+          longitude: checkInRecord.long_masuk,
+          distance: checkInRecord.distance_in,
+          similarity: checkInRecord.face_similarity_in,
+          photo: checkInRecord.foto_masuk
+        } : null,
+        checkOut: checkOutRecord ? {
+          time: `${formatDate(checkOutRecord.tanggal)}T${checkOutRecord.jam_keluar}`,
+          latitude: checkOutRecord.lat_keluar,
+          longitude: checkOutRecord.long_keluar,
+          distance: checkOutRecord.distance_out,
+          similarity: checkOutRecord.face_similarity_out,
+          photo: checkOutRecord.foto_keluar
+        } : null,
+        workDuration: workDuration,
+        canCheckIn: canCheckIn,
+        canCheckOut: canCheckOut,
+        nextAction: !checkInRecord ? 'clock_in' : (!checkOutRecord ? 'clock_out' : 'completed'),
+        workSchedule: scheduleRows.length > 0 ? {
+          nama: scheduleRows[0].nama,
+          jam_masuk: scheduleRows[0].jam_masuk,
+          jam_keluar: scheduleRows[0].jam_keluar,
+          batas_absen_masuk_awal: scheduleRows[0].batas_absen_masuk_awal,
+          batas_absen_masuk_akhir: scheduleRows[0].batas_absen_masuk_akhir,
+          batas_absen_keluar_awal: scheduleRows[0].batas_absen_keluar_awal,
+          batas_absen_keluar_akhir: scheduleRows[0].batas_absen_keluar_akhir,
+          hari_kerja: parseWorkDays(scheduleRows[0].hari_kerja)
+        } : null
       }
     };
+
+    // Debug logging for work schedule
+    if (scheduleRows.length > 0) {
+      console.log('[Attendance Status] Work Schedule for employee', id_karyawan);
+      console.log('  - Raw hari_kerja:', scheduleRows[0].hari_kerja);
+      console.log('  - Parsed hari_kerja:', response.data.workSchedule.hari_kerja);
+    }
 
     res.json(response);
 
@@ -2966,25 +3007,24 @@ router.get('/attendance/today', authenticateToken, async (req, res) => {
       SELECT 
         p.*,
         CASE 
-          WHEN p.attendance_type = 'clock_in' AND p.is_late = 1 THEN 'late'
-          WHEN p.attendance_type = 'clock_out' AND p.is_early = 1 THEN 'early'
-          WHEN p.attendance_type = 'clock_out' AND p.overtime_minutes > 0 THEN 'overtime'
-          ELSE 'on_time'
+          WHEN p.jam_keluar IS NULL THEN 'on_time'
+          ELSE 'completed'
         END as status
       FROM presensi p
-      WHERE p.id_karyawan = ? AND DATE(p.waktu) = ?
-      ORDER BY p.waktu ASC
+      WHERE p.id_karyawan = ? AND DATE(p.tanggal) = ?
+      ORDER BY p.tanggal ASC
     `, [karyawanId, today]);
 
-    const checkInRecord = attendanceRows.find(r => r.attendance_type === 'clock_in');
-    const checkOutRecord = attendanceRows.find(r => r.attendance_type === 'clock_out');
+    const checkInRecord = attendanceRows.length > 0 ? attendanceRows[0] : null;
+    const checkOutRecord = checkInRecord && checkInRecord.jam_keluar ? checkInRecord : null;
 
     // Calculate work duration if both records exist
     let workDuration = null;
     let workDurationMinutes = null;
     if (checkInRecord && checkOutRecord) {
-      const checkInTime = new Date(checkInRecord.waktu);
-      const checkOutTime = new Date(checkOutRecord.waktu);
+      const checkInDate = new Date(checkInRecord.tanggal).toISOString().split('T')[0];
+      const checkInTime = new Date(`${checkInDate}T${checkInRecord.jam_masuk}`);
+      const checkOutTime = new Date(`${checkInDate}T${checkOutRecord.jam_keluar}`);
       workDurationMinutes = Math.floor((checkOutTime - checkInTime) / (1000 * 60));
       const hours = Math.floor(workDurationMinutes / 60);
       const minutes = workDurationMinutes % 60;
@@ -3022,26 +3062,24 @@ router.get('/attendance/today', authenticateToken, async (req, res) => {
         has_clocked_in: !!checkInRecord,
         has_clocked_out: !!checkOutRecord,
         clock_in: checkInRecord ? {
-          time: checkInRecord.waktu,
+          time: checkInRecord.jam_masuk,
           status: checkInRecord.status,
           location: {
-            latitude: checkInRecord.lat_absen,
-            longitude: checkInRecord.long_absen,
-            distance: checkInRecord.jarak_meter,
-            status: checkInRecord.status_lokasi
+            latitude: checkInRecord.lat_masuk,
+            longitude: checkInRecord.long_masuk,
+            distance: checkInRecord.distance_in
           },
-          similarity: checkInRecord.similarity_score
+          similarity: checkInRecord.face_similarity_in
         } : null,
         clock_out: checkOutRecord ? {
-          time: checkOutRecord.waktu,
+          time: checkOutRecord.jam_keluar,
           status: checkOutRecord.status,
           location: {
-            latitude: checkOutRecord.lat_absen,
-            longitude: checkOutRecord.long_absen,
-            distance: checkOutRecord.jarak_meter,
-            status: checkOutRecord.status_lokasi
+            latitude: checkOutRecord.lat_keluar,
+            longitude: checkOutRecord.long_keluar,
+            distance: checkOutRecord.distance_out
           },
-          similarity: checkOutRecord.similarity_score
+          similarity: checkOutRecord.face_similarity_out
         } : null,
         work_duration: workDuration,
         work_duration_minutes: workDurationMinutes,
@@ -3110,39 +3148,38 @@ router.get('/attendance/history', authenticateToken, async (req, res) => {
     let query = `
       SELECT 
         p.id,
-        DATE_FORMAT(p.waktu, '%Y-%m-%d') as date,
-        p.waktu as time,
-        p.attendance_type as type,
-        p.lat_absen as latitude,
-        p.long_absen as longitude,
-        p.jarak_meter as distance,
-        p.similarity_score,
-        p.foto_checkin as photo,
-        CASE 
-          WHEN p.attendance_type = 'clock_in' AND p.is_late = 1 THEN 'late'
-          WHEN p.attendance_type = 'clock_out' AND p.is_early = 1 THEN 'early'
-          WHEN p.attendance_type = 'clock_out' AND p.overtime_minutes > 0 THEN 'overtime'
-          ELSE 'on_time'
-        END as status
+        p.tanggal as date,
+        p.jam_masuk as clock_in_time,
+        p.jam_keluar as clock_out_time,
+        p.lat_masuk as clock_in_latitude,
+        p.long_masuk as clock_in_longitude,
+        p.lat_keluar as clock_out_latitude,
+        p.long_keluar as clock_out_longitude,
+        p.distance_in as clock_in_distance,
+        p.distance_out as clock_out_distance,
+        p.foto_masuk as clock_in_photo,
+        p.foto_keluar as clock_out_photo,
+        p.status
       FROM presensi p
       WHERE p.id_karyawan = ?
+        AND (p.jam_masuk IS NOT NULL OR p.jam_keluar IS NOT NULL)
     `;
 
     const params = [karyawanId];
 
     if (start_date) {
-      query += ' AND DATE(p.waktu) >= ?';
+      query += ' AND p.tanggal >= ?';
       params.push(start_date);
     }
 
     if (end_date) {
-      query += ' AND DATE(p.waktu) <= ?';
+      query += ' AND p.tanggal <= ?';
       params.push(end_date);
     }
 
     const limitNum = parseInt(limit);
     const offsetNum = parseInt(offset);
-    query += ` ORDER BY p.waktu DESC LIMIT ${limitNum} OFFSET ${offsetNum}`;
+    query += ` ORDER BY p.tanggal DESC, p.jam_masuk DESC LIMIT ${limitNum} OFFSET ${offsetNum}`;
 
     const [rows] = await connection.execute(query, params);
 
@@ -3151,37 +3188,65 @@ router.get('/attendance/history', authenticateToken, async (req, res) => {
     const countParams = [karyawanId];
     
     if (start_date) {
-      countQuery += ' AND DATE(waktu) >= ?';
+      countQuery += ' AND tanggal >= ?';
       countParams.push(start_date);
     }
     
     if (end_date) {
-      countQuery += ' AND DATE(waktu) <= ?';
+      countQuery += ' AND tanggal <= ?';
       countParams.push(end_date);
     }
 
     const [countRows] = await connection.execute(countQuery, countParams);
     const total = countRows[0].total;
 
-    // Transform data to match Android model
-    const records = rows.map(row => ({
-      id: row.id,
-      date: row.date,
-      time: row.time,
-      type: row.type,
-      location: {
-        latitude: row.latitude,
-        longitude: row.longitude,
-        distance: row.distance,
-        is_valid: row.distance <= 100
-      },
-      face_match: row.similarity_score ? {
-        is_match: row.similarity_score >= 0.75,
-        similarity: row.similarity_score
-      } : null,
-      photo: row.photo,
-      status: row.status
-    }));
+    // Transform data to match Android model - one record per day with both clock in and clock out
+    const records = rows.map(row => {
+      // Simple status: only "Tepat Waktu" or "Terlambat"
+      // If no clock in/out, record won't appear (filtered by WHERE clause)
+      let status = 'present';
+      let statusLabel = 'Tepat Waktu';
+      
+      // Only check if late
+      if (row.status === 'terlambat') {
+        status = 'late';
+        statusLabel = 'Terlambat';
+      }
+      
+      // Format date properly - convert Date object to yyyy-MM-dd string
+      const dateStr = row.date instanceof Date 
+        ? row.date.toISOString().split('T')[0]
+        : (typeof row.date === 'string' ? row.date.split('T')[0] : row.date);
+      
+      return {
+        id: row.id,
+        date: dateStr,
+        clockIn: row.clock_in_time ? {
+          time: `${dateStr} ${row.clock_in_time}`,
+          location: {
+            latitude: row.clock_in_latitude,
+            longitude: row.clock_in_longitude,
+            distance: row.clock_in_distance || 0,
+            isValid: (row.clock_in_distance || 0) <= 300
+          },
+          photo: row.clock_in_photo
+        } : null,
+        clockOut: row.clock_out_time ? {
+          time: `${dateStr} ${row.clock_out_time}`,
+          location: {
+            latitude: row.clock_out_latitude,
+            longitude: row.clock_out_longitude,
+            distance: row.clock_out_distance || 0,
+            isValid: (row.clock_out_distance || 0) <= 300
+          },
+          photo: row.clock_out_photo
+        } : null,
+        status: status,
+        statusLabel: statusLabel,
+        hasClockIn: !!row.clock_in_time,
+        hasClockOut: !!row.clock_out_time
+      };
+    });
 
     res.json({
       success: true,
@@ -3438,7 +3503,7 @@ router.post('/validation/face-match', authenticateToken, upload.single('photo'),
 
     // Get employee's face reference
     const [faceRows] = await connection.execute(
-      'SELECT * FROM karyawan_face_reference WHERE karyawan_id = ? AND is_active = TRUE',
+      'SELECT * FROM karyawan_face_reference WHERE id_karyawan = ? AND is_active = TRUE',
       [req.user.id]
     );
 
@@ -3592,14 +3657,12 @@ router.get('/settings/office-location', authenticateToken, async (req, res) => {
 
     res.json({
       success: true,
+      message: 'Office location retrieved successfully',
       data: {
         latitude: parseFloat(settings.lat_kantor),
         longitude: parseFloat(settings.long_kantor),
-        radius: settings.radius_meter,
-        coordinates: {
-          lat: parseFloat(settings.lat_kantor),
-          lng: parseFloat(settings.long_kantor)
-        }
+        radiusMeters: parseFloat(settings.radius_meter), // Changed from radius to radiusMeters
+        address: null // Optional field for future use
       }
     });
 

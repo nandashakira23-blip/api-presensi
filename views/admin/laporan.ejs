@@ -126,7 +126,6 @@
             display: block;
         }
     </style>
-    <!-- Google Maps tidak memerlukan CSS tambahan -->
 </head>
 <body class="bg-dark-900 min-h-screen solid-background">
     <%- include('../partials/navbar') %>
@@ -284,30 +283,35 @@
                             <% presensi.forEach(function(p) { %>
                                 <div class="border-b border-brown-600/30 p-4">
                                     <div class="flex items-start space-x-4">
-                                        <img src="/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
+                                        <% const photoSrc = p.profile_picture || p.foto_masuk; %>
+                                        <img src="/<%= photoSrc %>" alt="Foto <%= p.nama %>" 
                                              onerror="this.src='/LogoApp.jpeg'; this.onerror=null;"
                                              class="w-16 h-16 rounded-lg object-cover cursor-pointer flex-shrink-0 border-2 border-brown-600/50"
-                                             onclick="showImage('/<%= p.foto_checkin %>')">>
+                                             onclick="showImage('/<%= photoSrc %>')">
                                         <div class="flex-1 min-w-0">
                                             <div class="flex items-center justify-between mb-2">
                                                 <h3 class="font-semibold text-white truncate"><%= p.nama %></h3>
-                                                <% if (p.status_lokasi === 'Dalam Area') { %>
+                                                <% if (p.status === 'hadir') { %>
                                                     <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-900/50 text-green-300 border border-green-600/50">
                                                         <i class="fas fa-check-circle mr-1"></i>
-                                                        Dalam Area
+                                                        Hadir
                                                     </span>
                                                 <% } else { %>
                                                     <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-900/50 text-red-300 border border-red-600/50">
                                                         <i class="fas fa-exclamation-triangle mr-1"></i>
-                                                        Luar Area
+                                                        <%= p.status %>
                                                     </span>
                                                 <% } %>
                                             </div>
                                             <p class="text-sm text-brown-300 mb-1"><%= p.jabatan %></p>
-                                            <p class="text-sm text-brown-300 mb-2"><%= new Date(p.waktu).toLocaleString('id-ID') %></p>
+                                            <p class="text-sm text-brown-300 mb-2">
+                                                <%= new Date(p.tanggal).toLocaleDateString('id-ID') %> 
+                                                <% if (p.jam_masuk) { %>- Masuk: <%= p.jam_masuk %><% } %>
+                                                <% if (p.jam_keluar) { %> - Keluar: <%= p.jam_keluar %><% } %>
+                                            </p>
                                             <div class="flex items-center justify-between">
-                                                <span class="text-sm text-brown-300">Jarak: <%= p.jarak_meter %> m</span>
-                                                <a href="https://www.google.com/maps?q=<%= p.lat_absen %>,<%= p.long_absen %>" 
+                                                <span class="text-sm text-brown-300">Jarak: <%= p.distance_in || 0 %> m</span>
+                                                <a href="https://www.google.com/maps?q=<%= p.lat_masuk %>,<%= p.long_masuk %>" 
                                                    target="_blank" 
                                                    class="text-blue-400 hover:text-blue-300 transition duration-200 text-sm">
                                                     <i class="fas fa-map-marker-alt mr-1"></i>
@@ -328,9 +332,10 @@
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Nama</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Jabatan</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Waktu</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Foto Selfie</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Status Lokasi</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Tanggal</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Jam Masuk</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Jam Keluar</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Jarak</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-brown-200 uppercase tracking-wider">Maps</th>
                                 </tr>
@@ -338,7 +343,7 @@
                             <tbody class="divide-y divide-brown-600/30">
                                 <% if (presensi.length === 0) { %>
                                     <tr>
-                                        <td colspan="7" class="px-6 py-8 text-center text-brown-300">
+                                        <td colspan="8" class="px-6 py-8 text-center text-brown-300">
                                             <i class="fas fa-inbox text-4xl mb-4 text-brown-400"></i>
                                             <p>Tidak ada data presensi untuk tanggal yang dipilih</p>
                                         </td>
@@ -353,32 +358,32 @@
                                                 <%= p.jabatan %>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
-                                                <%= new Date(p.waktu).toLocaleString('id-ID') %>
+                                                <%= new Date(p.tanggal).toLocaleDateString('id-ID') %>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
-                                                <img src="/<%= p.foto_checkin %>" alt="Foto <%= p.nama %>" 
-                                                     onerror="this.src='/LogoApp.jpeg'; this.onerror=null;"
-                                                     class="w-12 h-12 rounded-lg object-cover cursor-pointer border-2 border-brown-600/50 hover:border-brown-400 transition duration-200"
-                                                     onclick="showImage('/<%= p.foto_checkin %>')">
+                                                <%= p.jam_masuk || '-' %>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
+                                                <%= p.jam_keluar || '-' %>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <% if (p.status_lokasi === 'Dalam Area') { %>
+                                                <% if (p.status === 'hadir') { %>
                                                     <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-900/50 text-green-300 border border-green-600/50">
                                                         <i class="fas fa-check-circle mr-1"></i>
-                                                        Dalam Area
+                                                        Hadir
                                                     </span>
                                                 <% } else { %>
                                                     <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-900/50 text-red-300 border border-red-600/50">
                                                         <i class="fas fa-exclamation-triangle mr-1"></i>
-                                                        Luar Area
+                                                        <%= p.status %>
                                                     </span>
                                                 <% } %>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-200">
-                                                <%= p.jarak_meter %> m
+                                                <%= p.distance_in || 0 %> m
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                <a href="https://www.google.com/maps?q=<%= p.lat_absen %>,<%= p.long_absen %>" 
+                                                <a href="https://www.google.com/maps?q=<%= p.lat_masuk %>,<%= p.long_masuk %>" 
                                                    target="_blank" 
                                                    class="text-blue-400 hover:text-blue-300 transition duration-200">
                                                     <i class="fas fa-map-marker-alt mr-1"></i>
@@ -407,47 +412,15 @@
                             </div>
                             <div class="text-center p-4 bg-green-900/50 rounded-lg border border-green-600/30">
                                 <div class="text-2xl font-bold text-green-300">
-                                    <%= presensi.filter(p => p.status_lokasi === 'Dalam Area').length %>
+                                    <%= presensi.filter(p => p.status === 'hadir').length %>
                                 </div>
-                                <div class="text-sm text-green-200">Dalam Area</div>
+                                <div class="text-sm text-green-200">Hadir</div>
                             </div>
                             <div class="text-center p-4 bg-red-900/50 rounded-lg border border-red-600/30">
                                 <div class="text-2xl font-bold text-red-300">
-                                    <%= presensi.filter(p => p.status_lokasi === 'Luar Area').length %>
+                                    <%= presensi.filter(p => p.status !== 'hadir').length %>
                                 </div>
-                                <div class="text-sm text-red-200">Luar Area</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Map View -->
-                    <div class="mt-6 bg-dark-800 rounded-xl shadow-2xl p-4 sm:p-6 border border-brown-600/30">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-bold text-white flex items-center">
-                                <i class="fas fa-map text-brown-400 mr-3"></i>
-                                Peta Lokasi Presensi
-                            </h3>
-                            <button id="toggleMap" class="bg-brown-600 hover:bg-brown-500 text-white px-4 py-2 rounded-lg transition duration-200 text-sm shadow-lg">
-                                <i class="fas fa-map mr-2"></i>Tampilkan Peta
-                            </button>
-                        </div>
-                        <div id="attendanceMap" class="hidden rounded-lg h-64 sm:h-80 border border-brown-600/50"></div>
-                        <div id="mapLegend" class="hidden mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                            <div class="flex items-center text-brown-200">
-                                <div class="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
-                                <span>Lokasi Kantor</span>
-                            </div>
-                            <div class="flex items-center text-brown-200">
-                                <div class="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
-                                <span>Presensi Dalam Area</span>
-                            </div>
-                            <div class="flex items-center text-brown-200">
-                                <div class="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
-                                <span>Presensi Luar Area</span>
-                            </div>
-                            <div class="flex items-center text-brown-200">
-                                <div class="w-4 h-4 border-2 border-red-500 rounded-full mr-2 bg-red-100"></div>
-                                <span>Radius Area Kantor</span>
+                                <div class="text-sm text-red-200">Tidak Hadir</div>
                             </div>
                         </div>
                     </div>
@@ -462,7 +435,7 @@
                             <p>Tidak ada data presensi untuk ditampilkan di peta</p>
                         </div>
                     <% } else { %>
-                        <div class="bg-dark-800 rounded-xl shadow-2xl p-4 sm:p-6 border border-brown-600/30">
+                        <div class="bg-dark-800 rounded-xl shadow-2xl p-6 border border-brown-600/30">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-bold text-white flex items-center">
                                     <i class="fas fa-map text-brown-400 mr-3"></i>
@@ -477,11 +450,11 @@
                                 </div>
                                 <div class="flex items-center text-brown-200">
                                     <div class="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
-                                    <span>Presensi Dalam Area</span>
+                                    <span>Presensi Hadir</span>
                                 </div>
                                 <div class="flex items-center text-brown-200">
                                     <div class="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
-                                    <span>Presensi Luar Area</span>
+                                    <span>Presensi Tidak Hadir</span>
                                 </div>
                                 <div class="flex items-center text-brown-200">
                                     <div class="w-4 h-4 border-2 border-red-500 rounded-full mr-2 bg-red-100"></div>
@@ -509,16 +482,16 @@
                             </div>
                             <div class="bg-dark-800 rounded-xl shadow-2xl p-6 border border-brown-600/30 text-center">
                                 <div class="text-3xl font-bold text-green-300 mb-2">
-                                    <%= presensi.filter(p => p.status_lokasi === 'Dalam Area').length %>
+                                    <%= presensi.filter(p => p.status === 'hadir').length %>
                                 </div>
-                                <div class="text-brown-200 mb-2">Dalam Area</div>
+                                <div class="text-brown-200 mb-2">Hadir</div>
                                 <i class="fas fa-check-circle text-green-400 text-2xl"></i>
                             </div>
                             <div class="bg-dark-800 rounded-xl shadow-2xl p-6 border border-brown-600/30 text-center">
                                 <div class="text-3xl font-bold text-red-300 mb-2">
-                                    <%= presensi.filter(p => p.status_lokasi === 'Luar Area').length %>
+                                    <%= presensi.filter(p => p.status !== 'hadir').length %>
                                 </div>
-                                <div class="text-brown-200 mb-2">Luar Area</div>
+                                <div class="text-brown-200 mb-2">Tidak Hadir</div>
                                 <i class="fas fa-exclamation-triangle text-red-400 text-2xl"></i>
                             </div>
                         </div>
@@ -532,27 +505,27 @@
                             <div class="space-y-4">
                                 <% 
                                 const totalPresensi = presensi.length;
-                                const dalamArea = presensi.filter(p => p.status_lokasi === 'Dalam Area').length;
-                                const luarArea = presensi.filter(p => p.status_lokasi === 'Luar Area').length;
-                                const persentaseDalam = totalPresensi > 0 ? Math.round((dalamArea / totalPresensi) * 100) : 0;
-                                const persentaseLuar = totalPresensi > 0 ? Math.round((luarArea / totalPresensi) * 100) : 0;
+                                const hadir = presensi.filter(p => p.status === 'hadir').length;
+                                const tidakHadir = presensi.filter(p => p.status !== 'hadir').length;
+                                const persentaseHadir = totalPresensi > 0 ? Math.round((hadir / totalPresensi) * 100) : 0;
+                                const persentaseTidakHadir = totalPresensi > 0 ? Math.round((tidakHadir / totalPresensi) * 100) : 0;
                                 %>
                                 <div>
                                     <div class="flex justify-between text-sm text-brown-200 mb-1">
-                                        <span>Dalam Area</span>
-                                        <span><%= persentaseDalam %>%</span>
+                                        <span>Hadir</span>
+                                        <span><%= persentaseHadir %>%</span>
                                     </div>
                                     <div class="w-full bg-dark-600 rounded-full h-3">
-                                        <div class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: <%= persentaseDalam %>%"></div>
+                                        <div class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: <%= persentaseHadir %>%"></div>
                                     </div>
                                 </div>
                                 <div>
                                     <div class="flex justify-between text-sm text-brown-200 mb-1">
-                                        <span>Luar Area</span>
-                                        <span><%= persentaseLuar %>%</span>
+                                        <span>Tidak Hadir</span>
+                                        <span><%= persentaseTidakHadir %>%</span>
                                     </div>
                                     <div class="w-full bg-dark-600 rounded-full h-3">
-                                        <div class="bg-red-500 h-3 rounded-full transition-all duration-500" style="width: <%= persentaseLuar %>%"></div>
+                                        <div class="bg-red-500 h-3 rounded-full transition-all duration-500" style="width: <%= persentaseTidakHadir %>%"></div>
                                     </div>
                                 </div>
                             </div>
@@ -572,16 +545,20 @@
                                         uniqueEmployees[p.nama] = {
                                             nama: p.nama,
                                             jabatan: p.jabatan,
-                                            status: p.status_lokasi,
-                                            waktu: p.waktu,
-                                            foto: p.foto_checkin
+                                            status: p.status,
+                                            tanggal: p.tanggal,
+                                            jam_masuk: p.jam_masuk,
+                                            foto: p.foto_masuk,
+                                            profile_picture: p.profile_picture
                                         };
                                     }
                                 });
                                 Object.values(uniqueEmployees).forEach(function(emp) { %>
                                     <div class="flex items-center justify-between p-3 bg-dark-700 rounded-lg border border-brown-600/30">
                                         <div class="flex items-center space-x-3">
-                                            <img src="/uploads/presensi/<%= emp.foto %>" alt="<%= emp.nama %>" 
+                                            <% const empPhotoSrc = emp.profile_picture || emp.foto; %>
+                                            <img src="/<%= empPhotoSrc %>" alt="<%= emp.nama %>" 
+                                                 onerror="this.src='/LogoApp.jpeg'; this.onerror=null;"
                                                  class="w-10 h-10 rounded-full object-cover border-2 border-brown-600/50">
                                             <div>
                                                 <div class="font-medium text-white"><%= emp.nama %></div>
@@ -589,19 +566,19 @@
                                             </div>
                                         </div>
                                         <div class="text-right">
-                                            <% if (emp.status === 'Dalam Area') { %>
+                                            <% if (emp.status === 'hadir') { %>
                                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-900/50 text-green-300 border border-green-600/50">
                                                     <i class="fas fa-check-circle mr-1"></i>
-                                                    Dalam Area
+                                                    Hadir
                                                 </span>
                                             <% } else { %>
                                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-900/50 text-red-300 border border-red-600/50">
                                                     <i class="fas fa-exclamation-triangle mr-1"></i>
-                                                    Luar Area
+                                                    <%= emp.status %>
                                                 </span>
                                             <% } %>
                                             <div class="text-xs text-brown-400 mt-1">
-                                                <%= new Date(emp.waktu).toLocaleTimeString('id-ID') %>
+                                                <%= emp.jam_masuk || 'Belum absen' %>
                                             </div>
                                         </div>
                                     </div>
@@ -665,12 +642,13 @@
                 {
                     nama: "<%- (p.nama || '').replace(/"/g, '\\"') %>",
                     jabatan: "<%- (p.jabatan || '').replace(/"/g, '\\"') %>",
-                    waktu: "<%= p.waktu ? new Date(p.waktu).toLocaleString('id-ID') : '' %>",
-                    lat: <%= p.lat_absen || 0 %>,
-                    lng: <%= p.long_absen || 0 %>,
-                    status: "<%= p.status_lokasi || '' %>",
-                    jarak: <%= p.jarak_meter || 0 %>,
-                    foto: "<%= p.foto_checkin || '' %>"
+                    tanggal: "<%= p.tanggal ? new Date(p.tanggal).toLocaleDateString('id-ID') : '' %>",
+                    jam_masuk: "<%= p.jam_masuk || '' %>",
+                    lat: <%= p.lat_masuk || 0 %>,
+                    lng: <%= p.long_masuk || 0 %>,
+                    status: "<%= p.status || '' %>",
+                    jarak: <%= p.distance_in || 0 %>,
+                    foto: "<%= p.profile_picture || p.foto_masuk || '' %>"
                 }<%= index < presensi.length - 1 ? ',' : '' %>
             <% }); %>
         ];
@@ -728,8 +706,8 @@
 
             // Add attendance markers
             attendanceData.forEach(function(attendance) {
-                const isInArea = attendance.status === 'Dalam Area';
-                const markerColor = isInArea ? '#10b981' : '#ef4444';
+                const isPresent = attendance.status === 'hadir';
+                const markerColor = isPresent ? '#10b981' : '#ef4444';
                 
                 const attendanceMarker = new google.maps.Marker({
                     position: { lat: attendance.lat, lng: attendance.lng },
@@ -748,12 +726,13 @@
                 const attendanceInfoWindow = new google.maps.InfoWindow({
                     content: `
                         <div class="text-center max-w-xs">
-                            <img src="/uploads/presensi/${attendance.foto}" alt="${attendance.nama}" 
+                            <img src="/${attendance.foto}" alt="${attendance.nama}" 
+                                 onerror="this.src='/LogoApp.jpeg'; this.onerror=null;"
                                  class="w-16 h-16 rounded-lg object-cover mx-auto mb-2">
                             <strong>${attendance.nama}</strong><br>
                             <small>${attendance.jabatan}</small><br>
-                            <small>${attendance.waktu}</small><br>
-                            <span class="inline-block px-2 py-1 text-xs rounded-full ${isInArea ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            <small>${attendance.tanggal} ${attendance.jam_masuk}</small><br>
+                            <span class="inline-block px-2 py-1 text-xs rounded-full ${isPresent ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
                                 ${attendance.status}
                             </span><br>
                             <small>Jarak: ${attendance.jarak}m</small>
@@ -793,32 +772,6 @@
             attendanceMapTabInstance = createMapInstance('attendanceMapTab');
         }
 
-        function toggleAttendanceMap() {
-            const mapDiv = document.getElementById('attendanceMap');
-            const legendDiv = document.getElementById('mapLegend');
-            const toggleBtn = document.getElementById('toggleMap');
-
-            if (isMapVisible) {
-                mapDiv.classList.add('hidden');
-                legendDiv.classList.add('hidden');
-                toggleBtn.innerHTML = '<i class="fas fa-map mr-2"></i>Tampilkan Peta';
-                isMapVisible = false;
-            } else {
-                mapDiv.classList.remove('hidden');
-                legendDiv.classList.remove('hidden');
-                toggleBtn.innerHTML = '<i class="fas fa-eye-slash mr-2"></i>Sembunyikan Peta';
-                isMapVisible = true;
-                
-                // Initialize map if not already done
-                setTimeout(() => {
-                    initAttendanceMap();
-                    if (attendanceMapInstance) {
-                        google.maps.event.trigger(attendanceMapInstance, 'resize');
-                    }
-                }, 100);
-            }
-        }
-
         function showImage(src) {
             document.getElementById('modalImage').src = src;
             document.getElementById('imageModal').classList.remove('hidden');
@@ -832,10 +785,7 @@
 
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
-            const toggleMapBtn = document.getElementById('toggleMap');
-            if (toggleMapBtn) {
-                toggleMapBtn.addEventListener('click', toggleAttendanceMap);
-            }
+            // Tab event listeners are already set up above
         });
 
         // Close modal when clicking outside
@@ -848,54 +798,10 @@
         // Handle Google Maps authentication failure
         function gm_authFailure() {
             console.error('Google Maps authentication failed');
-            const mapDiv = document.getElementById('attendanceMap');
+            const mapDiv = document.getElementById('attendanceMapTab');
             if (mapDiv) {
                 mapDiv.innerHTML = '<div class="flex items-center justify-center h-full text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>Google Maps authentication failed</div>';
             }
-        }
-
-        // Real-time Clock - Consistent format (date and time only)
-        function updateClock() {
-            try {
-                const now = new Date();
-                const options = {
-                    day: '2-digit',
-                    month: '2-digit', 
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    timeZone: 'Asia/Jakarta'
-                };
-                
-                const timeString = now.toLocaleString('id-ID', options);
-                const clockElement = document.getElementById('currentTime');
-                
-                if (clockElement) {
-                    clockElement.textContent = timeString;
-                }
-            } catch (error) {
-                console.error('Clock update error:', error);
-                // Fallback to simple time format
-                const clockElement = document.getElementById('currentTime');
-                
-                if (clockElement) {
-                    const now = new Date();
-                    const day = String(now.getDate()).padStart(2, '0');
-                    const month = String(now.getMonth() + 1).padStart(2, '0');
-                    const year = now.getFullYear();
-                    const hours = String(now.getHours()).padStart(2, '0');
-                    const minutes = String(now.getMinutes()).padStart(2, '0');
-                    const seconds = String(now.getSeconds()).padStart(2, '0');
-                    clockElement.textContent = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-                }
-            }
-        }
-
-        // Update clock immediately and then every second
-        if (document.getElementById('currentTime')) {
-            updateClock();
-            setInterval(updateClock, 1000);
         }
 
         // Filter Type Switching
