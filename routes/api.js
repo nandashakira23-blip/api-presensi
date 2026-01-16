@@ -2586,9 +2586,19 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
 
     // Calculate work duration
     const checkInRow = checkInRows[0];
-    // Combine tanggal and jam_masuk to create a proper datetime
-    const checkInTime = new Date(`${checkInRow.tanggal.toISOString().split('T')[0]}T${checkInRow.jam_masuk}`);
-    const checkOutTime = new Date();
+    // Get current time in WIB (UTC+7)
+    const now = new Date();
+    const wibOffset = 7 * 60; // WIB is UTC+7
+    const localOffset = now.getTimezoneOffset();
+    const wibTime = new Date(now.getTime() + (wibOffset + localOffset) * 60 * 1000);
+    
+    // Combine tanggal and jam_masuk to create a proper datetime in WIB
+    const checkInDate = new Date(checkInRow.tanggal);
+    const [jamMasukHour, jamMasukMin, jamMasukSec] = checkInRow.jam_masuk.split(':').map(Number);
+    const checkInTime = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate(), jamMasukHour, jamMasukMin, jamMasukSec || 0);
+    
+    const checkOutTime = new Date(wibTime.getFullYear(), wibTime.getMonth(), wibTime.getDate(), wibTime.getHours(), wibTime.getMinutes(), wibTime.getSeconds());
+    
     const workDurationMs = checkOutTime - checkInTime;
     const workDurationMinutes = Math.floor(workDurationMs / (1000 * 60));
     const hours = Math.floor(workDurationMinutes / 60);
@@ -2869,25 +2879,21 @@ router.get('/attendance/status/:id_karyawan', authenticateToken, async (req, res
     
     if (checkInRecord && checkOutRecord) {
       // Both clock in and clock out exist - calculate duration
-      const checkInDate = new Date(checkInRecord.tanggal).toISOString().split('T')[0];
-      const checkInDateTime = new Date(`${checkInDate}T${checkInRecord.jam_masuk}`);
-      const checkOutDate = new Date(checkOutRecord.tanggal).toISOString().split('T')[0];
-      const checkOutDateTime = new Date(`${checkOutDate}T${checkOutRecord.jam_keluar}`);
+      const checkInDate = new Date(checkInRecord.tanggal);
+      const [jamMasukHour, jamMasukMin, jamMasukSec] = checkInRecord.jam_masuk.split(':').map(Number);
+      const checkInDateTime = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate(), jamMasukHour, jamMasukMin, jamMasukSec || 0);
+      
+      const checkOutDate = new Date(checkOutRecord.tanggal);
+      const [jamKeluarHour, jamKeluarMin, jamKeluarSec] = checkOutRecord.jam_keluar.split(':').map(Number);
+      const checkOutDateTime = new Date(checkOutDate.getFullYear(), checkOutDate.getMonth(), checkOutDate.getDate(), jamKeluarHour, jamKeluarMin, jamKeluarSec || 0);
+      
       workDurationMinutes = Math.floor((checkOutDateTime - checkInDateTime) / (1000 * 60));
       
       const hours = Math.floor(workDurationMinutes / 60);
       const minutes = workDurationMinutes % 60;
       workDuration = `${hours} jam ${minutes} menit`;
-    } else if (checkInRecord && !checkOutRecord) {
-      // Only clock in exists - calculate real-time duration
-      const checkInDate = new Date(checkInRecord.tanggal).toISOString().split('T')[0];
-      const checkInDateTime = new Date(`${checkInDate}T${checkInRecord.jam_masuk}`);
-      const now = new Date();
-      workDurationMinutes = Math.floor((now - checkInDateTime) / (1000 * 60));
-      const hours = Math.floor(workDurationMinutes / 60);
-      const minutes = workDurationMinutes % 60;
-      workDuration = `${hours} jam ${minutes} menit`;
     }
+    // Don't calculate duration if only checked in (wait until check out)
 
     // Get work schedule to determine if can check in/out
     const [scheduleRows] = await connection.execute(`
@@ -2906,21 +2912,61 @@ router.get('/attendance/status/:id_karyawan', authenticateToken, async (req, res
       const workDays = parseWorkDays(schedule.hari_kerja);
       const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
       
+      // Debug logging
+      console.log('[DEBUG] Attendance Status Check:');
+      console.log('  - Current Time:', currentTime);
+      console.log('  - Today:', todayName);
+      console.log('  - Work Days:', workDays);
+      console.log('  - Schedule:', {
+        nama: schedule.nama,
+        batas_absen_masuk_awal: schedule.batas_absen_masuk_awal,
+        batas_absen_masuk_akhir: schedule.batas_absen_masuk_akhir,
+        batas_absen_keluar_awal: schedule.batas_absen_keluar_awal,
+        batas_absen_keluar_akhir: schedule.batas_absen_keluar_akhir
+      });
+      console.log('  - Has Checked In:', !!checkInRecord);
+      console.log('  - Has Checked Out:', !!checkOutRecord);
+      
       // Check if today is a work day (case-insensitive)
       const isWorkDay = workDays.some(day => day.toLowerCase() === todayName.toLowerCase());
+      console.log('  - Is Work Day:', isWorkDay);
       
       if (!isWorkDay) {
         canCheckIn = false;
         canCheckOut = false;
+        console.log('  - Result: NOT A WORK DAY - buttons disabled');
       } else {
         // Check time constraints
         if (canCheckIn && schedule.batas_absen_masuk_awal && schedule.batas_absen_masuk_akhir) {
-          canCheckIn = currentTime >= schedule.batas_absen_masuk_awal && currentTime <= schedule.batas_absen_masuk_akhir;
+          const timeCheckIn = currentTime >= schedule.batas_absen_masuk_awal && currentTime <= schedule.batas_absen_masuk_akhir;
+          console.log('  - Clock In Time Check:', {
+            current: currentTime,
+            start: schedule.batas_absen_masuk_awal,
+            end: schedule.batas_absen_masuk_akhir,
+            valid: timeCheckIn
+          });
+          canCheckIn = timeCheckIn;
+        } else {
+          console.log('  - Clock In: No time constraints or already checked in');
         }
+        
         if (canCheckOut && schedule.batas_absen_keluar_awal && schedule.batas_absen_keluar_akhir) {
-          canCheckOut = currentTime >= schedule.batas_absen_keluar_awal && currentTime <= schedule.batas_absen_keluar_akhir;
+          const timeCheckOut = currentTime >= schedule.batas_absen_keluar_awal && currentTime <= schedule.batas_absen_keluar_akhir;
+          console.log('  - Clock Out Time Check:', {
+            current: currentTime,
+            start: schedule.batas_absen_keluar_awal,
+            end: schedule.batas_absen_keluar_akhir,
+            valid: timeCheckOut
+          });
+          canCheckOut = timeCheckOut;
+        } else {
+          console.log('  - Clock Out: No time constraints or not ready');
         }
       }
+      
+      console.log('  - Final Result: canCheckIn =', canCheckIn, ', canCheckOut =', canCheckOut);
+    } else {
+      console.log('[DEBUG] No work schedule found for employee', id_karyawan);
     }
 
     const response = {

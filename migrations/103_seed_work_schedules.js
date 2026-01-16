@@ -57,7 +57,7 @@ async function up(connection) {
                     batas_absen_keluar_akhir: '22:15:00',
                     jam_istirahat_mulai: '18:00:00',
                     jam_istirahat_selesai: '19:00:00',
-                    hari_kerja: JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']),
+                    hari_kerja: JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']),
                     toleransi_terlambat: 15,
                     durasi_istirahat: 60,
                     batas_lembur: 480

@@ -853,7 +853,9 @@ router.post('/work-schedule/add', requireAuth, async (req, res) => {
 
     try {
         const workDaysArray = Array.isArray(work_days) ? work_days : [work_days].filter(Boolean);
-        const workDaysJson = JSON.stringify(workDaysArray);
+        // Capitalize first letter to match PascalCase format (Monday, Tuesday, etc.)
+        const capitalizedDays = workDaysArray.map(day => day.charAt(0).toUpperCase() + day.slice(1));
+        const workDaysJson = JSON.stringify(capitalizedDays);
 
         const query = `
             INSERT INTO jadwal_kerja (nama, jam_masuk, jam_keluar, batas_absen_masuk_awal, batas_absen_masuk_akhir, batas_absen_keluar_awal, batas_absen_keluar_akhir, hari_kerja) 
@@ -977,7 +979,9 @@ router.post('/work-schedule/update', requireAuth, async (req, res) => {
 
     try {
         const workDaysArray = Array.isArray(work_days) ? work_days : [work_days].filter(Boolean);
-        const workDaysJson = JSON.stringify(workDaysArray);
+        // Capitalize first letter to match PascalCase format (Monday, Tuesday, etc.)
+        const capitalizedDays = workDaysArray.map(day => day.charAt(0).toUpperCase() + day.slice(1));
+        const workDaysJson = JSON.stringify(capitalizedDays);
 
         const query = `
             UPDATE jadwal_kerja 

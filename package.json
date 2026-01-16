@@ -24,6 +24,7 @@
     "migrate:up": "node scripts/migrate.js up",
     "migrate:down": "node scripts/migrate.js down",
     "migrate:fresh": "node scripts/migrate.js down && node scripts/migrate.js up",
+    "migrate:reset": "node scripts/reset-database-simple.js",
     "db:fresh": "node scripts/fresh-install.js",
     "db:backup": "node scripts/backup-database.js",
     "db:clear": "node scripts/clear-database.js",
