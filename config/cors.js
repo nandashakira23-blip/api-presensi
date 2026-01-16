@@ -39,9 +39,9 @@ const corsOptions = {
                 'http://localhost:3000',       // Development local
                 'http://127.0.0.1:3000',       // Development local (alternatif)
                 'http://192.168.1.102:3000',   // IP lokal (sesuaikan)
-                'http://10.0.2.2:3000',        // Android emulator
+                'http://76.13.19.34',        // Android emulator
                 'https://api.fleuratelier.com', // Production API
-                'https://fleuratelier.com'     // Production website
+                'fleurpresensi.online'     // Production website
             ];
 
         // Cek apakah origin ada di daftar yang diizinkan
