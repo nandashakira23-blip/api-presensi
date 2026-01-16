@@ -97,6 +97,45 @@ async function getConnection() {
 // ============================================
 
 /**
+ * Get current time in WITA timezone (Asia/Makassar, UTC+8)
+ * Returns time in HH:MM:SS format
+ */
+function getCurrentTimeWITA() {
+  const now = new Date();
+  // Convert to WITA (UTC+8)
+  const witaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+  const hours = String(witaTime.getHours()).padStart(2, '0');
+  const minutes = String(witaTime.getMinutes()).padStart(2, '0');
+  const seconds = String(witaTime.getSeconds()).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * Get current date in WITA timezone
+ * Returns date in YYYY-MM-DD format
+ */
+function getCurrentDateWITA() {
+  const now = new Date();
+  const witaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+  const year = witaTime.getFullYear();
+  const month = String(witaTime.getMonth() + 1).padStart(2, '0');
+  const day = String(witaTime.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get current day name in WITA timezone
+ * Returns day name in English (e.g., "Monday", "Tuesday")
+ */
+function getCurrentDayNameWITA() {
+  const now = new Date();
+  return now.toLocaleDateString('en-US', { 
+    weekday: 'long',
+    timeZone: 'Asia/Makassar'
+  });
+}
+
+/**
  * Safe JSON parse untuk work_days
  * Handle format lama (string comma-separated) dan format baru (JSON array)
  */
@@ -2213,12 +2252,12 @@ router.post('/attendance/checkin', (req, res, next) => {
 
     let clockInStatus = 'on_time';
     let isLate = false;
-    const currentTime = new Date().toTimeString().split(' ')[0]; // Define currentTime here so it's accessible throughout
+    const currentTime = getCurrentTimeWITA(); // Use WITA timezone
 
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
       const workDays = parseWorkDays(schedule.hari_kerja);
-      const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      const todayName = getCurrentDayNameWITA().toLowerCase();
       
       // VALIDASI: Cek apakah hari ini adalah hari kerja
       const isWorkDay = workDays.some(day => day.toLowerCase() === todayName);
@@ -2615,12 +2654,12 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
     let clockOutStatus = 'on_time';
     let isEarly = false;
     let overtimeMinutes = 0;
-    const currentTime = new Date().toTimeString().split(' ')[0]; // Define currentTime here so it's accessible throughout
+    const currentTime = getCurrentTimeWITA(); // Use WITA timezone
 
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
       const workDays = parseWorkDays(schedule.hari_kerja);
-      const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      const todayName = getCurrentDayNameWITA().toLowerCase();
       
       // VALIDASI: Cek apakah hari ini adalah hari kerja
       const isWorkDay = workDays.some(day => day.toLowerCase() === todayName);
@@ -2908,9 +2947,9 @@ router.get('/attendance/status/:id_karyawan', authenticateToken, async (req, res
 
     if (scheduleRows.length > 0) {
       const schedule = scheduleRows[0];
-      const currentTime = new Date().toTimeString().split(' ')[0];
+      const currentTime = getCurrentTimeWITA();
       const workDays = parseWorkDays(schedule.hari_kerja);
-      const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+      const todayName = getCurrentDayNameWITA();
       
       // Debug logging
       console.log('[DEBUG] Attendance Status Check:');
