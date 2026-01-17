@@ -136,9 +136,31 @@ function getCurrentDayNameWITA() {
 }
 
 /**
- * Safe JSON parse untuk work_days
- * Handle format lama (string comma-separated) dan format baru (JSON array)
+ * Check if current time is within allowed time range
+ * Handles overnight shifts (e.g., 20:00 - 09:00)
  */
+function isTimeInRange(currentTime, startTime, endTime) {
+  if (!startTime || !endTime) return true;
+  
+  // Convert times to minutes for easier comparison
+  const timeToMinutes = (timeStr) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+  
+  const current = timeToMinutes(currentTime);
+  const start = timeToMinutes(startTime);
+  const end = timeToMinutes(endTime);
+  
+  // If start time is less than end time (normal shift, e.g., 08:00 - 17:00)
+  if (start <= end) {
+    return current >= start && current <= end;
+  }
+  
+  // If start time is greater than end time (overnight shift, e.g., 20:00 - 09:00)
+  // Current time is valid if it's after start OR before end
+  return current >= start || current <= end;
+}
 function parseWorkDays(workDaysString) {
   if (!workDaysString) return [];
   
@@ -2280,7 +2302,7 @@ router.post('/attendance/checkin', (req, res, next) => {
       }
       
       // VALIDASI: Check-in hanya bisa dilakukan dalam window waktu yang ditentukan
-      if (currentTime < schedule.batas_absen_masuk_awal || currentTime > schedule.batas_absen_masuk_akhir) {
+      if (!isTimeInRange(currentTime, schedule.batas_absen_masuk_awal, schedule.batas_absen_masuk_akhir)) {
         if (fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
         }
@@ -2682,7 +2704,7 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
       }
       
       // VALIDASI: Check-out hanya bisa dilakukan dalam window waktu yang ditentukan
-      if (currentTime < schedule.batas_absen_keluar_awal || currentTime > schedule.batas_absen_keluar_akhir) {
+      if (!isTimeInRange(currentTime, schedule.batas_absen_keluar_awal, schedule.batas_absen_keluar_akhir)) {
         if (fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
         }
@@ -2977,7 +2999,7 @@ router.get('/attendance/status/:id_karyawan', authenticateToken, async (req, res
       } else {
         // Check time constraints
         if (canCheckIn && schedule.batas_absen_masuk_awal && schedule.batas_absen_masuk_akhir) {
-          const timeCheckIn = currentTime >= schedule.batas_absen_masuk_awal && currentTime <= schedule.batas_absen_masuk_akhir;
+          const timeCheckIn = isTimeInRange(currentTime, schedule.batas_absen_masuk_awal, schedule.batas_absen_masuk_akhir);
           console.log('  - Clock In Time Check:', {
             current: currentTime,
             start: schedule.batas_absen_masuk_awal,
@@ -2990,7 +3012,7 @@ router.get('/attendance/status/:id_karyawan', authenticateToken, async (req, res
         }
         
         if (canCheckOut && schedule.batas_absen_keluar_awal && schedule.batas_absen_keluar_akhir) {
-          const timeCheckOut = currentTime >= schedule.batas_absen_keluar_awal && currentTime <= schedule.batas_absen_keluar_akhir;
+          const timeCheckOut = isTimeInRange(currentTime, schedule.batas_absen_keluar_awal, schedule.batas_absen_keluar_akhir);
           console.log('  - Clock Out Time Check:', {
             current: currentTime,
             start: schedule.batas_absen_keluar_awal,
