@@ -39,7 +39,7 @@ const colors = {
  * @param {boolean} success - Whether the action was successful
  */
 function logActivity(type, action, details = {}, success = true) {
-  const timestamp = new Date().toISOString();
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' });
   const statusIcon = success ? '[OK]' : '[FAIL]';
   const colorFn = colors[type] || colors.info;
   

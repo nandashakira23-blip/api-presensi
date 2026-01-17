@@ -249,7 +249,7 @@ class FaceAPIRecognitionService {
             console.log('\n=== FACE-API.JS COMPARISON ===');
             console.log(`Reference Photo: ${path.basename(referencePath)}`);
             console.log(`Check Photo: ${path.basename(checkPath)}`);
-            console.log(`Timestamp: ${new Date().toISOString()}`);
+            console.log(`Timestamp: ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' })}`);
 
             const referenceDetection = await this.detectFace(referencePath);
             const checkDetection = await this.detectFace(checkPath);

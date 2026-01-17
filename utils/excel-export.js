@@ -245,7 +245,7 @@ async function generateAttendanceExcel(data, filter, officeSetting) {
   // FOOTER
   worksheet.addRow([]);
   worksheet.addRow([]);
-  const footerRow = worksheet.addRow(['', '', '', '', '', '', '', '', '', `Denpasar, ${new Date().toLocaleDateString('id-ID')}`, '']);
+  const footerRow = worksheet.addRow(['', '', '', '', '', '', '', '', '', `Denpasar, ${new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Makassar' })}`, '']);
   footerRow.alignment = { horizontal: 'center' };
 
   worksheet.addRow(['', '', '', '', '', '', '', '', '', 'Mengetahui,', '']);

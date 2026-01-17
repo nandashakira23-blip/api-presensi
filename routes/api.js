@@ -2223,7 +2223,7 @@ router.post('/attendance/checkin', (req, res, next) => {
 
     console.log('Step 6: Checking if already checked in today...');
     // Check if already checked in today
-    const today = new Date().toISOString().split('T')[0];
+    const today = getCurrentDateWITA();
     const [existingRows] = await connection.execute(
       'SELECT id FROM presensi WHERE id_karyawan = ? AND tanggal = ? AND jam_masuk IS NOT NULL',
       [req.user.id, today]
@@ -2482,7 +2482,7 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
     }
 
     // Check if already checked out today
-    const today = new Date().toISOString().split('T')[0];
+    const today = getCurrentDateWITA();
     const [existingCheckOut] = await connection.execute(
       'SELECT id FROM presensi WHERE id_karyawan = ? AND tanggal = ? AND jam_keluar IS NOT NULL',
       [req.user.id, today]
@@ -2625,18 +2625,18 @@ router.post('/attendance/checkout', authenticateToken, upload.single('photo'), a
 
     // Calculate work duration
     const checkInRow = checkInRows[0];
-    // Get current time in WIB (UTC+7)
+    // Get current time in WITA (UTC+8)
     const now = new Date();
-    const wibOffset = 7 * 60; // WIB is UTC+7
+    const witaOffset = 8 * 60; // WITA is UTC+8
     const localOffset = now.getTimezoneOffset();
-    const wibTime = new Date(now.getTime() + (wibOffset + localOffset) * 60 * 1000);
+    const witaTime = new Date(now.getTime() + (witaOffset + localOffset) * 60 * 1000);
     
-    // Combine tanggal and jam_masuk to create a proper datetime in WIB
+    // Combine tanggal and jam_masuk to create a proper datetime in WITA
     const checkInDate = new Date(checkInRow.tanggal);
     const [jamMasukHour, jamMasukMin, jamMasukSec] = checkInRow.jam_masuk.split(':').map(Number);
     const checkInTime = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate(), jamMasukHour, jamMasukMin, jamMasukSec || 0);
     
-    const checkOutTime = new Date(wibTime.getFullYear(), wibTime.getMonth(), wibTime.getDate(), wibTime.getHours(), wibTime.getMinutes(), wibTime.getSeconds());
+    const checkOutTime = new Date(witaTime.getFullYear(), witaTime.getMonth(), witaTime.getDate(), witaTime.getHours(), witaTime.getMinutes(), witaTime.getSeconds());
     
     const workDurationMs = checkOutTime - checkInTime;
     const workDurationMinutes = Math.floor(workDurationMs / (1000 * 60));
@@ -2876,7 +2876,7 @@ router.get('/attendance/status/:id_karyawan', authenticateToken, async (req, res
       });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getCurrentDateWITA();
 
     // Get today's attendance records
     const [attendanceRows] = await connection.execute(`
@@ -3010,6 +3010,7 @@ router.get('/attendance/status/:id_karyawan', authenticateToken, async (req, res
 
     const response = {
       success: true,
+      message: 'Attendance status retrieved successfully',
       data: {
         date: today,
         hasCheckedIn: !!checkInRecord,
@@ -3085,7 +3086,7 @@ router.get('/attendance/today', authenticateToken, async (req, res) => {
   
   try {
     const karyawanId = req.user.id;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getCurrentDateWITA();
 
     // Get today's attendance records
     const [attendanceRows] = await connection.execute(`

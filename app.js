@@ -5,6 +5,9 @@ const path = require('path');
 const net = require('net');
 require('dotenv').config();
 
+// Set timezone to WITA (UTC+8) - Fixed timezone, tidak bergantung env
+process.env.TZ = 'Asia/Makassar';
+
 // Suppress deprecation warnings
 process.noDeprecation = true;
 

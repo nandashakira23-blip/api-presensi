@@ -28,6 +28,37 @@ const db = {
 
 const { requireAuth, redirectIfAuth } = require('../middleware/auth');
 
+/**
+ * WITA Timezone Helper Functions
+ */
+function getCurrentTimeWITA() {
+    const now = new Date();
+    const witaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+    const hours = String(witaTime.getHours()).padStart(2, '0');
+    const minutes = String(witaTime.getMinutes()).padStart(2, '0');
+    const seconds = String(witaTime.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+}
+
+function getCurrentDateWITA() {
+    const now = new Date();
+    const witaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+    const year = witaTime.getFullYear();
+    const month = String(witaTime.getMonth() + 1).padStart(2, '0');
+    const day = String(witaTime.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getDateWITA(daysOffset = 0) {
+    const now = new Date();
+    const witaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+    witaTime.setDate(witaTime.getDate() + daysOffset);
+    const year = witaTime.getFullYear();
+    const month = String(witaTime.getMonth() + 1).padStart(2, '0');
+    const day = String(witaTime.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 const router = express.Router();
 /**
  * IMPORTANT: This file uses db.query() which returns promises.
@@ -226,7 +257,7 @@ router.get('/api/attendance-chart-data', requireAuth, async (req, res) => {
         }
         
         // Create labels and data arrays for the last 7 days
-        const today = new Date();
+        const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
         const labels = [];
         const data = [];
         const attendanceMap = {};
@@ -241,7 +272,7 @@ router.get('/api/attendance-chart-data', requireAuth, async (req, res) => {
         for (let i = 6; i >= 0; i--) {
             const date = new Date(today);
             date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = getDateWITA(-i);
             
             labels.push(date.toLocaleDateString('id-ID', { 
                 weekday: 'short', 
@@ -599,7 +630,7 @@ router.get('/laporan', requireAuth, async (req, res) => {
                 title: 'Laporan Absensi - Fleur Atelier',
                 admin: req.session.admin,
                 presensi: [],
-                filter: { tanggal: tanggal || new Date().toISOString().split('T')[0], filterType, startDate, endDate, month, year },
+                filter: { tanggal: tanggal || getCurrentDateWITA(), filterType, startDate, endDate, month, year },
                 officeSetting: { lat_kantor: -8.8155675, long_kantor: 115.1253343, radius_meter: 100 },
                 GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || ''
             });
@@ -614,7 +645,7 @@ router.get('/laporan', requireAuth, async (req, res) => {
                 title: 'Laporan Absensi - Fleur Atelier',
                 admin: req.session.admin,
                 presensi: presensiResults,
-                filter: { tanggal: tanggal || new Date().toISOString().split('T')[0], filterType, startDate, endDate, month, year },
+                filter: { tanggal: tanggal || getCurrentDateWITA(), filterType, startDate, endDate, month, year },
                 officeSetting: officeSetting,
                 GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY || ''
             });
@@ -647,7 +678,7 @@ router.get('/laporan/export', requireAuth, async (req, res) => {
         queryParams.push(tanggal);
         filterInfo = { type: 'date', startDate: tanggal };
     } else {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getCurrentDateWITA();
         whereClause = 'WHERE DATE(p.tanggal) = ?';
         queryParams.push(today);
         filterInfo = { type: 'date', startDate: today };
@@ -1405,7 +1436,7 @@ router.post('/api/test/upload-reference', requireAuth, async (req, res) => {
                 originalName: req.file.originalname,
                 filePath: imagePath,
                 faces: faces,
-                uploadTime: new Date().toISOString(),
+                uploadTime: new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' }),
                 adminId: req.session.admin.id
             };
 
@@ -1420,7 +1451,7 @@ router.post('/api/test/upload-reference', requireAuth, async (req, res) => {
                     originalName: req.file.originalname,
                     facesDetected: faces.length,
                     faces: faces,
-                    uploadTime: new Date().toISOString()
+                    uploadTime: new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' })
                 }
             });
 

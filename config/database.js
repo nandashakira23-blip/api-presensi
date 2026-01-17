@@ -29,7 +29,8 @@ async function initializeDatabase() {
             queueLimit: 0,
             acquireTimeout: 60000,
             timeout: 60000,
-            reconnect: true
+            reconnect: true,
+            timezone: '+08:00' // WITA timezone (UTC+8) - Fixed, tidak bergantung env
         };
 
         // Buat connection pool untuk MySQL
